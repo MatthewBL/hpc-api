@@ -1,6 +1,6 @@
-// services/slurmService.js
 const { spawn, exec } = require('child_process');
 const { promisify } = require('util');
+const llmQueryService = require('./llmQueryService'); // Add this import
 const execAsync = promisify(exec);
 
 class SlurmService {
@@ -21,10 +21,24 @@ class SlurmService {
       
       // Extract job info from output
       const jobMatch = stdout.match(/New job (\S+) in GPU (\S+)/);
+      const jobId = jobMatch ? jobMatch[1] : null;
+      const gpuNode = jobMatch ? jobMatch[2] : null;
+
+      // Register the job with the query service
+      if (jobId) {
+        llmQueryService.registerJob(jobId, {
+          port,
+          model,
+          node: gpuNode,
+          gpuType,
+          startTime: new Date().toISOString()
+        });
+      }
+      
       return {
         success: true,
-        jobId: jobMatch ? jobMatch[1] : null,
-        gpuNode: jobMatch ? jobMatch[2] : null,
+        jobId,
+        gpuNode,
         message: 'Job started successfully'
       };
     } catch (error) {
@@ -55,6 +69,10 @@ class SlurmService {
   async cancelJob(jobId) {
     try {
       await execAsync(`scancel ${jobId}`);
+      
+      // Unregister the job from query service
+      llmQueryService.unregisterJob(jobId);
+      
       return { success: true, message: 'Job cancelled successfully' };
     } catch (error) {
       return { success: false, error: error.message };

@@ -1,9 +1,9 @@
-// routes/jobs.js
 const express = require('express');
 const slurmService = require('../services/slurmService');
+const llmQueryService = require('../services/llmQueryService'); // Add this import
 const router = express.Router();
 
-// ✅ Correct routes - no duplicate prefix
+// Start a new job
 router.post('/start/:gpuType', async (req, res) => {
   try {
     const { gpuType } = req.params;
@@ -19,6 +19,7 @@ router.post('/start/:gpuType', async (req, res) => {
   }
 });
 
+// Get all jobs (Slurm status)
 router.get('/', async (req, res) => {
   try {
     const result = await slurmService.getJobStatus();
@@ -28,6 +29,24 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get active jobs available for queries
+router.get('/active', (req, res) => {
+  try {
+    const activeJobs = llmQueryService.getActiveJobs();
+    res.json({
+      success: true,
+      count: activeJobs.length,
+      jobs: activeJobs
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Cancel a job
 router.delete('/:jobId', async (req, res) => {
   try {
     const result = await slurmService.cancelJob(req.params.jobId);
