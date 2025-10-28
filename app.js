@@ -19,7 +19,7 @@ const healthRoutes = require('./routes/health');
 
 // Use routes - make sure these are actually router objects
 app.use('/api/jobs', jobRoutes);
-app.use('/api/jobs', queryRoutes);
+app.use('/api/query', queryRoutes);
 app.use('/health', healthRoutes);
 
 // Error handling middleware
