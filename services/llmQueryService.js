@@ -65,7 +65,7 @@ class LLMQueryService {
     try {
       const startTime = Date.now();
       const response = await axios.post(
-        `http://${job.gpuType}:${job.port}/v1/chat/completions`,
+        `http://${job.node}:${job.port}/v1/chat/completions`,
         requestData,
         {
           headers: {
