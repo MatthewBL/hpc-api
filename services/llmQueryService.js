@@ -44,7 +44,7 @@ class LLMQueryService {
       model = job.model,
       temperature = 0,
       seed = 41008,
-      logprobs = true,
+      logprobs = false,
       max_tokens = null,
       timeout = 30000 // 30 seconds default timeout
     } = options;
