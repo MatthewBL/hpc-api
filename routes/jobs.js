@@ -1,6 +1,8 @@
 const express = require('express');
 const slurmService = require('../services/slurmService');
 const llmQueryService = require('../services/llmQueryService'); // Add this import
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 
 // Start a new job
@@ -130,13 +132,45 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Internal server error
  */
-router.get('/active', (req, res) => {
+router.get('/active', async (req, res) => {
   try {
     const activeJobs = llmQueryService.getActiveJobs();
+
+    // For each active job, check corresponding slurm log for the startup string
+    const checks = activeJobs.map(async (job) => {
+      const jobLog = path.join(__dirname, '..', `slurm-${job.jobId}.out`);
+      try {
+        // If file is large this reads whole file; acceptable for typical slurm logs here.
+        const content = await fs.promises.readFile(jobLog, 'utf8');
+        const started = content.includes('INFO:     Application startup complete.');
+        return {
+          ...job,
+          status: started ? 'available' : 'setting up'
+        };
+      } catch (err) {
+        // If file does not exist or can't be read, treat as still setting up
+        if (err.code === 'ENOENT') {
+          return {
+            ...job,
+            status: 'setting up',
+            logMissing: true
+          };
+        }
+        // Other errors are surfaced but do not crash the entire response
+        return {
+          ...job,
+          status: 'unknown',
+          error: err.message
+        };
+      }
+    });
+
+    const jobsWithStatus = await Promise.all(checks);
+
     res.json({
       success: true,
-      count: activeJobs.length,
-      jobs: activeJobs
+      count: jobsWithStatus.length,
+      jobs: jobsWithStatus
     });
   } catch (error) {
     res.status(500).json({ 
