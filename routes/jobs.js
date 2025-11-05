@@ -134,7 +134,28 @@ router.get('/', async (req, res) => {
  */
 router.get('/active', async (req, res) => {
   try {
-    const activeJobs = llmQueryService.getActiveJobs();
+    let activeJobs = llmQueryService.getActiveJobs();
+
+    // Reconcile registered active jobs with the current Slurm queue.
+    // Remove any jobs from the registry that are no longer present in squeue.
+    try {
+      const slurmResult = await slurmService.getJobStatus();
+      if (slurmResult && slurmResult.success && Array.isArray(slurmResult.jobs)) {
+        const currentIds = new Set(slurmResult.jobs.map(j => String(j.id)));
+        // Unregister jobs that are no longer in Slurm
+        activeJobs.forEach((job) => {
+          if (!currentIds.has(String(job.jobId))) {
+            llmQueryService.unregisterJob(job.jobId);
+          }
+        });
+        // Refresh the activeJobs list after unregistering stale ones
+        activeJobs = llmQueryService.getActiveJobs();
+      }
+      // If slurmResult.success is false, we skip pruning and continue
+    } catch (pruneErr) {
+      // Non-fatal: log server-side but continue returning whatever is registered
+      console.warn('Failed to reconcile active jobs with Slurm:', pruneErr.message || pruneErr);
+    }
 
     // For each active job, check corresponding slurm log for the startup string
     const checks = activeJobs.map(async (job) => {
