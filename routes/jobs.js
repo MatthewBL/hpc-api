@@ -309,6 +309,89 @@ router.delete('/:jobId', async (req, res) => {
   }
 });
 
+// Get a single active job by jobId
+/**
+ * /api/jobs/{jobId}:
+ *   get:
+ *     summary: Get a single active job
+ */
+router.get('/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    // Find persisted job
+    const job = await jobStore.findJob(String(jobId));
+    if (!job) return respond.error(res, `Job ${jobId} not found`, 404);
+
+    // Fetch Slurm info to merge timing fields when available
+    let slurmResult = null;
+    try {
+      slurmResult = await slurmService.getJobStatus();
+    } catch (err) {
+      // non-fatal
+    }
+
+    let slurmInfo = {};
+    try {
+      if (slurmResult && slurmResult.success && Array.isArray(slurmResult.jobs)) {
+        const found = slurmResult.jobs.find(j => String(j.id) === String(jobId));
+        if (found) {
+          slurmInfo = {
+            period: found.period,
+            time: found.time,
+            timeLeft: found.timeLeft,
+            node: found.node,
+            name: found.name
+          };
+        }
+      }
+    } catch (mergeErr) {
+      // ignore
+    }
+
+    // Check slurm log for startup marker
+    const jobLog = path.join(__dirname, '..', `slurm-${jobId}.out`);
+    try {
+      const content = await fs.promises.readFile(jobLog, 'utf8');
+      const started = content.includes('INFO:     Application startup complete.');
+      const status = started ? 'available' : 'setting up';
+
+      return respond.success(res, {
+        job: {
+          jobId: String(jobId),
+          ...job,
+          status,
+          ...slurmInfo
+        }
+      });
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        return respond.success(res, {
+          job: {
+            jobId: String(jobId),
+            ...job,
+            status: 'setting up',
+            logMissing: true,
+            ...slurmInfo
+          }
+        });
+      }
+
+      return respond.success(res, {
+        job: {
+          jobId: String(jobId),
+          ...job,
+          status: 'unknown',
+          error: err.message,
+          ...slurmInfo
+        }
+      });
+    }
+  } catch (error) {
+    return respond.error(res, error.message || 'Failed to get job', 500);
+  }
+});
+
 // Register an externally-started SLURM job
 /**
  * @openapi
