@@ -1,6 +1,6 @@
 const { spawn, exec } = require('child_process');
 const { promisify } = require('util');
-const llmQueryService = require('./llmQueryService'); // Add this import
+const jobStore = require('./jobStore');
 const execAsync = promisify(exec);
 
 class SlurmService {
@@ -23,17 +23,9 @@ class SlurmService {
       const jobMatch = stdout.match(/New job (\S+) in GPU (\S+)/);
       const jobId = jobMatch ? jobMatch[1] : null;
       const gpuNode = jobMatch ? jobMatch[2] : null;
-
-      // Register the job with the query service
-      if (jobId) {
-        llmQueryService.registerJob(jobId, {
-          port,
-          model,
-          node: gpuNode,
-          gpuType,
-          startTime: new Date().toISOString()
-        });
-      }
+      // NOTE: Persistence/registration of the job is performed externally
+      // by calling the API /api/jobs/register (for example from the Makefile).
+      // This service returns the detected job info so the caller may register it.
       
       return {
         success: true,
@@ -70,8 +62,12 @@ class SlurmService {
     try {
       await execAsync(`scancel ${jobId}`);
       
-      // Unregister the job from query service
-      llmQueryService.unregisterJob(jobId);
+      // Remove the job from persisted store
+      try {
+        await jobStore.removeJob(jobId);
+      } catch (err) {
+        console.warn(`Failed to remove persisted job ${jobId}:`, err.message || err);
+      }
       
       return { success: true, message: 'Job cancelled successfully' };
     } catch (error) {

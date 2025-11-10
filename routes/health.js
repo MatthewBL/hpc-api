@@ -1,9 +1,10 @@
 const express = require('express');
+const respond = require('../utils/response');
 const router = express.Router();
 
 router.get('/', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  return respond.success(res, {
+    status: 'OK',
     timestamp: new Date().toISOString(),
     service: 'HPC API'
   });

@@ -14,12 +14,10 @@ app.use(express.json());
 
 // Import routes correctly
 const jobRoutes = require('./routes/jobs');
-const queryRoutes = require('./routes/query');
 const healthRoutes = require('./routes/health');
 
 // Use routes - make sure these are actually router objects
 app.use('/api/jobs', jobRoutes);
-app.use('/api/query', queryRoutes);
 app.use('/health', healthRoutes);
 
 const swaggerUi = require('swagger-ui-express');
