@@ -7,7 +7,6 @@ start_a30:
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2` ; \
 	GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
 	echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
-	# Register the job with the local API
 	@curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
 	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a30\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
@@ -20,7 +19,6 @@ start_a40:
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2` ; \
 	GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
 	echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
-	# Register the job with the local API
 	@curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
 	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a40\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
@@ -33,7 +31,6 @@ start_a100:
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2` ; \
 	GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
 	echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
-	# Register the job with the local API
 	@curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
 	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a100\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
