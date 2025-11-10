@@ -139,8 +139,10 @@ router.get('/', async (req, res) => {
 
     // Reconcile registered active jobs with the current Slurm queue.
     // Remove any jobs from the registry that are no longer present in squeue.
+    // Declare slurmResult in outer scope so we can merge timing info later.
+    let slurmResult = null;
     try {
-      const slurmResult = await slurmService.getJobStatus();
+      slurmResult = await slurmService.getJobStatus();
       if (slurmResult && slurmResult.success && Array.isArray(slurmResult.jobs)) {
         const currentIds = new Set(slurmResult.jobs.map(j => String(j.id)));
         // Remove jobs that are no longer in Slurm from the persistent store
