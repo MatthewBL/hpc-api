@@ -163,33 +163,86 @@ router.get('/', async (req, res) => {
     }
 
     // For each active job, check corresponding slurm log for the startup string
+    // Also merge Slurm timing info (period/time/timeLeft) when available.
     const checks = activeJobs.map(async (job) => {
       const jobLog = path.join(__dirname, '..', `slurm-${job._id}.out`);
       try {
         // If file is large this reads whole file; acceptable for typical slurm logs here.
         const content = await fs.promises.readFile(jobLog, 'utf8');
         const started = content.includes('INFO:     Application startup complete.');
+        // Attach slurm timing fields if we were able to fetch them earlier
+        let slurmInfo = {};
+        try {
+          if (slurmResult && slurmResult.success && Array.isArray(slurmResult.jobs)) {
+            const found = slurmResult.jobs.find(j => String(j.id) === String(job._id));
+            if (found) {
+              slurmInfo = {
+                period: found.period, // time limit
+                time: found.time, // elapsed
+                timeLeft: found.timeLeft
+              };
+            }
+          }
+        } catch (mergeErr) {
+          // ignore merge errors and continue
+        }
+
         return {
           jobId: job._id,
           ...job,
-          status: started ? 'available' : 'setting up'
+          status: started ? 'available' : 'setting up',
+          ...slurmInfo
         };
       } catch (err) {
         // If file does not exist or can't be read, treat as still setting up
         if (err.code === 'ENOENT') {
+          let slurmInfo = {};
+          try {
+            if (slurmResult && slurmResult.success && Array.isArray(slurmResult.jobs)) {
+              const found = slurmResult.jobs.find(j => String(j.id) === String(job._id));
+              if (found) {
+                slurmInfo = {
+                  period: found.period,
+                  time: found.time,
+                  timeLeft: found.timeLeft
+                };
+              }
+            }
+          } catch (mergeErr) {
+            // ignore
+          }
+
           return {
             jobId: job._id,
             ...job,
             status: 'setting up',
-            logMissing: true
+            logMissing: true,
+            ...slurmInfo
           };
         }
         // Other errors are surfaced but do not crash the entire response
+        let slurmInfo = {};
+        try {
+          if (slurmResult && slurmResult.success && Array.isArray(slurmResult.jobs)) {
+            const found = slurmResult.jobs.find(j => String(j.id) === String(job._id));
+            if (found) {
+              slurmInfo = {
+                period: found.period,
+                time: found.time,
+                timeLeft: found.timeLeft
+              };
+            }
+          }
+        } catch (mergeErr) {
+          // ignore
+        }
+
         return {
           jobId: job._id,
           ...job,
           status: 'unknown',
-          error: err.message
+          error: err.message,
+          ...slurmInfo
         };
       }
     });

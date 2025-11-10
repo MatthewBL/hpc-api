@@ -57,13 +57,20 @@ class SlurmService {
 
   async getJobStatus() {
     try {
-      const { stdout } = await execAsync('squeue -o "%i %T %j %N %M"');
+      // Use a pipe delimiter to avoid whitespace splitting issues and include
+      // both the time used (%M), time limit (%l) and time left (%L).
+      // --noheader avoids the header line so we only parse job lines.
+      const format = '%i|%T|%j|%N|%M|%l|%L';
+      const { stdout } = await execAsync(`squeue -o "${format}" --noheader`);
+
       const jobs = stdout.split('\n')
-        .slice(1) // Skip header
-        .filter(line => line.includes('temp_'))
+        .map(line => line.trim())
+        .filter(line => line && line.includes('temp_'))
         .map(line => {
-          const [id, status, name, node, time] = line.trim().split(/\s+/);
-          return { id, status, name, node, time };
+          const parts = line.split('|').map(p => p.trim());
+          // parts: [id, status, name, node, timeUsed, timeLimit, timeLeft]
+          const [id, status, name, node, time, period, timeLeft] = parts;
+          return { id, status, name, node, time, period, timeLeft };
         });
       
       return { success: true, jobs };
