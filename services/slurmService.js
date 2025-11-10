@@ -74,15 +74,24 @@ class SlurmService {
 
   async cancelJob(jobId) {
     try {
+      // Check if the job is registered in our persistent store. If it's not
+      // present, notify the caller that the job was not found instead of
+      // returning a generic success (scancel can be a no-op when the job
+      // doesn't exist).
+      const stored = await jobStore.findJob(String(jobId));
+      if (!stored) {
+        return { success: false, error: `Job ${jobId} not found`, code: 404 };
+      }
+
       await execAsync(`scancel ${jobId}`);
-      
+
       // Remove the job from persisted store
       try {
         await jobStore.removeJob(jobId);
       } catch (err) {
         console.warn(`Failed to remove persisted job ${jobId}:`, err.message || err);
       }
-      
+
       return { success: true, message: 'Job cancelled successfully' };
     } catch (error) {
       return { success: false, error: error.message };

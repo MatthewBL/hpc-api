@@ -244,6 +244,10 @@ router.delete('/:jobId', async (req, res) => {
   try {
     const result = await slurmService.cancelJob(req.params.jobId);
     if (result.success) return respond.success(res, result);
+    // If the service signals the job wasn't found, return 404 to the client
+    if (result && result.code === 404) {
+      return respond.error(res, result.error || 'Job not found', 404, result);
+    }
     return respond.error(res, result.error || 'Failed to cancel job', 500, result);
   } catch (error) {
     return respond.error(res, error.message || 'Failed to cancel job', 500);
