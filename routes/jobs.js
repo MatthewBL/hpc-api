@@ -11,21 +11,62 @@ const router = express.Router();
  * @openapi
  * /api/jobs/start/{gpuType}:
  *   post:
- *     summary: Start a new job (Slurm)
+ *     summary: Start a new Slurm job
  *     tags:
  *       - Jobs
  *     description: |
- *       Starts a new Slurm job for the requested GPU type. 
- *       The body schema is implementation-specific and is forwarded to the Slurm service.
+ *       Submits a job request to the Slurm service for the requested GPU type.
+ *       The request body is forwarded to the Slurm service and is implementation-specific
+ *       (e.g., may include model, port, timeout, environment variables, etc.).
  *     parameters:
  *       - in: path
  *         name: gpuType
  *         required: true
  *         schema:
  *           type: string
- *         description: Type of GPU to request (a100, a40 or a30)
+ *           enum: [a30, a40, a100]
+ *         description: GPU type to request (a30, a40, or a100)
+ *     requestBody:
+ *       description: Job submission parameters
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - model
+ *               - port
+ *               - gpus
+ *               - cpus
+ *               - period
+ *               - node
+ *             properties:
+ *               model:
+ *                 type: string
+ *                 example: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+ *                 description: The model identifier to run
+ *               port:
+ *                 type: integer
+ *                 example: 9000
+ *                 description: Port number for the service
+ *               gpus:
+ *                 type: integer
+ *                 example: 4
+ *                 description: Number of GPUs to allocate
+ *               cpus:
+ *                 type: integer
+ *                 example: 4
+ *                 description: Number of CPUs to allocate
+ *               period:
+ *                 type: string
+ *                 example: "01:00:00"
+ *                 description: Time period for the job (HH:MM:SS format)
+ *               node:
+ *                 type: string
+ *                 example: "gpu02"
+ *                 description: Specific node to run the job on
  *     responses:
- *       200:
+ *       '200':
  *         description: Job started successfully
  *         content:
  *           application/json:
@@ -34,14 +75,19 @@ const router = express.Router();
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 jobId:
  *                   type: string
- *                 details:
- *                   type: object
- *                   description: Additional info returned by the Slurm service
- *       400:
- *         description: Bad request
- *       500:
+ *                   example: '12345'
+ *                 gpuNode:
+ *                   type: string
+ *                   example: 'gpu02'
+ *                 message:
+ *                   type: string
+ *                   example: 'Job started successfully'
+ *       '400':
+ *         description: Bad request (invalid gpuType or payload)
+ *       '500':
  *         description: Internal server error
  */
 router.post('/start/:gpuType', async (req, res) => {
@@ -58,18 +104,54 @@ router.post('/start/:gpuType', async (req, res) => {
   }
 });
 
-// Get all jobs (Slurm status)
+// Register an externally-started SLURM job
 /**
  * @openapi
- * /api/jobs/all:
- *   get:
- *     summary: Get all jobs (Slurm status)
+ * /api/jobs/register:
+ *   post:
+ *     summary: Register an externally-started Slurm job
  *     tags:
  *       - Jobs
- *     description: Returns the current status of jobs managed via Slurm.
+ *     description: |
+ *       Register a job that was started outside this API so it becomes available
+ *       for query routing. The client must supply a job id and connection info.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - jobId
+ *               - port
+ *             properties:
+ *               jobId:
+ *                 type: string
+ *                 description: The Slurm job id
+ *                 example: '12345'
+ *               port:
+ *                 type: integer
+ *                 description: Port number for the service
+ *                 example: 9000
+ *               model:
+ *                 type: string
+ *                 description: The model identifier to run
+ *                 example: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+ *               node:
+ *                 type: string
+ *                 description: The compute node where the job is running
+ *                 example: "gpu02"
+ *               gpuType:
+ *                 type: string
+ *                 description: The GPU type used by the job
+ *                 example: "a30"
+ *               startTime:
+ *                 type: string
+ *                 format: date-time
+ *                 description: The job start time
  *     responses:
- *       200:
- *         description: Array of job statuses
+ *       '201':
+ *         description: Job registered
  *         content:
  *           application/json:
  *             schema:
@@ -77,36 +159,84 @@ router.post('/start/:gpuType', async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
- *                 jobs:
- *                   type: array
- *                   items:
- *                     type: object
- *                     description: Job status object as returned by the Slurm service
- *       500:
+ *                 job:
+ *                   type: object
+ *                   properties:
+ *                     port:
+ *                       type: integer
+ *                       example: 9000
+ *                     model:
+ *                       type: string
+ *                       example: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'
+ *                     node:
+ *                       type: string
+ *                       example: 'gpu02'
+ *                     gpuType:
+ *                       type: string
+ *                       example: 'a30'
+ *                     startTime:
+ *                       type: string
+ *                       format: date-time
+ *                       example: '2024-06-15T12:34:56.789Z'
+ *                     _id:
+ *                       type: string
+ *                       example: 'temp_Ab1'
+ *       '400':
+ *         description: Bad request (missing/invalid fields)
+ *       '500':
  *         description: Internal server error
  */
-router.get('/all', async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
-  const result = await slurmService.getJobStatus();
-  return respond.success(res, result);
+    const { jobId, port, model = '', node = '', gpuType = '', startTime = new Date().toISOString() } = req.body || {};
+
+    if (!jobId || !port) {
+      return respond.error(res, 'Missing required fields: jobId and port', 400);
+    }
+
+    // Basic validation
+    if (typeof jobId !== 'string') {
+      return respond.error(res, 'jobId must be a string', 400);
+    }
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum <= 0) {
+      return respond.error(res, 'port must be a positive integer', 400);
+    }
+
+    const jobInfo = {
+      port: portNum,
+      model,
+      node,
+      gpuType,
+      startTime
+    };
+
+    try {
+      const doc = await jobStore.addJob(jobId, jobInfo);
+      return respond.created(res, { job: doc });
+    } catch (err) {
+      return respond.error(res, err.message || String(err), 500);
+    }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return respond.error(res, error.message || 'Failed to register job', 500);
   }
 });
 
 // Get active jobs available for queries
 /**
  * @openapi
- * /api/jobs/:
+ * /api/jobs:
  *   get:
- *     summary: Get active jobs available for LLM queries
+ *     summary: List active jobs available for LLM queries
  *     tags:
  *       - Jobs
- *     description: Returns the set of jobs currently registered as active and available
- *       for sending LLM queries. Each job object includes `jobId` and connection info.
+ *     description: |
+ *       Returns jobs that have been registered with this API (either created via this
+ *       service or registered externally). Each returned job includes connection info
+ *       and inferred runtime status (available / setting up / unknown).
  *     responses:
- *       200:
- *         description: Active jobs list
+ *       '200':
+ *         description: Active jobs and their availability
  *         content:
  *           application/json:
  *             schema:
@@ -116,6 +246,7 @@ router.get('/all', async (req, res) => {
  *                   type: boolean
  *                 count:
  *                   type: integer
+ *                   example: 1
  *                 jobs:
  *                   type: array
  *                   items:
@@ -123,13 +254,40 @@ router.get('/all', async (req, res) => {
  *                     properties:
  *                       jobId:
  *                         type: string
+ *                         example: '12345'
  *                       port:
  *                         type: integer
+ *                         example: 9000
  *                       model:
  *                         type: string
+ *                         example: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'
  *                       node:
  *                         type: string
- *       500:
+ *                         example: 'gpu02'
+ *                       gpuType:
+ *                         type: string
+ *                         example: 'a30'
+ *                       startTime:
+ *                         type: string
+ *                         format: date-time
+ *                         example: '2024-06-15T12:34:56.789Z'
+ *                       _id:
+ *                         type: string
+ *                         example: '12345'
+ *                       status:
+ *                         type: string
+ *                         description: availability status for query routing
+ *                         example: 'available'
+ *                       period:
+ *                         type: string
+ *                         example: '01:00:00'
+ *                       time:
+ *                         type: string
+ *                         example: '00:15:23'
+ *                       timeLeft:
+ *                         type: string
+ *                         example: '00:44:37'
+ *       '500':
  *         description: Internal server error
  */
 router.get('/', async (req, res) => {
@@ -139,7 +297,6 @@ router.get('/', async (req, res) => {
 
     // Reconcile registered active jobs with the current Slurm queue.
     // Remove any jobs from the registry that are no longer present in squeue.
-    // Declare slurmResult in outer scope so we can merge timing info later.
     let slurmResult = null;
     try {
       slurmResult = await slurmService.getJobStatus();
@@ -263,24 +420,27 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Cancel a job
+// Get a single active job by jobId
 /**
  * @openapi
  * /api/jobs/{jobId}:
- *   delete:
- *     summary: Cancel a job
+ *   get:
+ *     summary: Retrieve a registered job
  *     tags:
  *       - Jobs
- *     description: Cancels the Slurm job with the provided ID.
+ *     description: Returns the stored job record and merged Slurm timing/status fields
+ *       when available. The response also inspects the Slurm log to determine whether
+ *       the application has finished startup and is available for queries.
  *     parameters:
  *       - in: path
  *         name: jobId
  *         required: true
  *         schema:
  *           type: string
+ *         description: The job id to fetch
  *     responses:
- *       200:
- *         description: Job cancelled (or cancellation queued)
+ *       '200':
+ *         description: Job details
  *         content:
  *           application/json:
  *             schema:
@@ -288,32 +448,47 @@ router.get('/', async (req, res) => {
  *               properties:
  *                 success:
  *                   type: boolean
- *                 message:
- *                   type: string
- *       404:
+ *                 job:
+ *                   type: object
+ *                   properties:
+ *                     jobId:
+ *                       type: string
+ *                       example: '12345'
+ *                     port:
+ *                       type: integer
+ *                       example: 9000
+ *                     model:
+ *                       type: string
+ *                       example: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'
+ *                     node:
+ *                       type: string
+ *                       example: 'gpu02'
+ *                     gpuType:
+ *                       type: string
+ *                       example: 'a30'
+ *                     startTime:
+ *                       type: string
+ *                       format: date-time
+ *                       example: '2024-06-15T12:34:56.789Z'
+ *                     status:
+ *                       type: string
+ *                       example: 'available'
+ *                     period:
+ *                       type: string
+ *                       example: '01:00:00'
+ *                     time:
+ *                       type: string
+ *                       example: '00:15:23'
+ *                     timeLeft:
+ *                       type: string
+ *                       example: '00:44:37'
+ *                     name:
+ *                       type: string
+ *                       example: 'temp_11abCD.slurm'
+ *       '404':
  *         description: Job not found
- *       500:
+ *       '500':
  *         description: Internal server error
- */
-router.delete('/:jobId', async (req, res) => {
-  try {
-    const result = await slurmService.cancelJob(req.params.jobId);
-    if (result.success) return respond.success(res, result);
-    // If the service signals the job wasn't found, return 404 to the client
-    if (result && result.code === 404) {
-      return respond.error(res, result.error || 'Job not found', 404, result);
-    }
-    return respond.error(res, result.error || 'Failed to cancel job', 500, result);
-  } catch (error) {
-    return respond.error(res, error.message || 'Failed to cancel job', 500);
-  }
-});
-
-// Get a single active job by jobId
-/**
- * /api/jobs/{jobId}:
- *   get:
- *     summary: Get a single active job
  */
 router.get('/:jobId', async (req, res) => {
   try {
@@ -392,83 +567,52 @@ router.get('/:jobId', async (req, res) => {
   }
 });
 
-// Register an externally-started SLURM job
+// Cancel a job
 /**
  * @openapi
- * /api/jobs/register:
- *   post:
- *     summary: Register an externally-started Slurm job
+ * /api/jobs/{jobId}:
+ *   delete:
+ *     summary: Cancel (terminate) a job
  *     tags:
  *       - Jobs
- *     description: |
- *       Registers a job that was started outside of this API (for example,
- *       a model started manually on the cluster). The caller must provide a
- *       jobId and at least basic connection info so the job becomes available
- *       for query routing.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - jobId
- *               - port
- *             properties:
- *               jobId:
- *                 type: string
- *               port:
- *                 type: integer
- *               model:
- *                 type: string
- *               node:
- *                 type: string
- *               gpuType:
- *                 type: string
- *               startTime:
- *                 type: string
- *                 format: date-time
+ *     description: Requests cancellation of the specified Slurm job. If the job is not
+ *       found the endpoint returns 404.
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The Slurm job id to cancel
  *     responses:
- *       201:
- *         description: Job registered
- *       400:
- *         description: Bad request (missing/invalid fields)
- *       500:
+ *       '200':
+ *         description: Cancellation accepted (job canceled or request queued)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                   example: 'Job cancelled successfully'
+ *       '404':
+ *         description: Job not found
+ *       '500':
  *         description: Internal server error
  */
-router.post('/register', async (req, res) => {
+router.delete('/:jobId', async (req, res) => {
   try {
-    const { jobId, port, model = '', node = '', gpuType = '', startTime = new Date().toISOString() } = req.body || {};
-
-    if (!jobId || !port) {
-      return respond.error(res, 'Missing required fields: jobId and port', 400);
+    const result = await slurmService.cancelJob(req.params.jobId);
+    if (result.success) return respond.success(res, result);
+    // If the service signals the job wasn't found, return 404 to the client
+    if (result && result.code === 404) {
+      return respond.error(res, result.error || 'Job not found', 404, result);
     }
-
-    // Basic validation
-    if (typeof jobId !== 'string') {
-      return respond.error(res, 'jobId must be a string', 400);
-    }
-    const portNum = Number(port);
-    if (!Number.isInteger(portNum) || portNum <= 0) {
-      return respond.error(res, 'port must be a positive integer', 400);
-    }
-
-    const jobInfo = {
-      port: portNum,
-      model,
-      node,
-      gpuType,
-      startTime
-    };
-
-    try {
-      const doc = await jobStore.addJob(jobId, jobInfo);
-      return respond.created(res, { job: doc });
-    } catch (err) {
-      return respond.error(res, err.message || String(err), 500);
-    }
+    return respond.error(res, result.error || 'Failed to cancel job', 500, result);
   } catch (error) {
-    return respond.error(res, error.message || 'Failed to register job', 500);
+    return respond.error(res, error.message || 'Failed to cancel job', 500);
   }
 });
 

@@ -23,10 +23,8 @@ app.use('/health', healthRoutes);
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
 
-// Serve API docs (optionally only in development)
-if (process.env.NODE_ENV !== 'production') {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-}
+// Serve API docs 
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
