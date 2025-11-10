@@ -19,10 +19,24 @@ class SlurmService {
         `make start_${gpuType} MODEL=${model} PORT=${port} GPUS=${gpus} CPUS=${cpus} PERIOD=${period} NODE=${node}`
       );
       
-      // Extract job info from output
-      const jobMatch = stdout.match(/New job (\S+) in GPU (\S+)/);
-      const jobId = jobMatch ? jobMatch[1] : null;
-      const gpuNode = jobMatch ? jobMatch[2] : null;
+      // The Makefile itself registers the job by curling /api/jobs/register, but
+      // the stdout from `make` may not contain structured job info. Query squeue
+      // directly to find the most recent job with the temp_ name pattern (same
+      // logic as used in the Makefile) so we can return jobId and gpuNode.
+      let jobId = null;
+      let gpuNode = null;
+      try {
+        // Get the most recent job id for temp_ jobs
+        const { stdout: idOut } = await execAsync("squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2 | head -1");
+        jobId = idOut ? idOut.trim() : null;
+
+        // Get the node name for the most recent temp_ job
+        const { stdout: nodeOut } = await execAsync("squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1");
+        gpuNode = nodeOut ? nodeOut.trim() : null;
+      } catch (parseErr) {
+        // Non-fatal: keep jobId/gpuNode as null if parsing fails
+        console.warn('Failed to parse squeue for jobId/gpuNode:', parseErr.message || parseErr);
+      }
       // NOTE: Persistence/registration of the job is performed externally
       // by calling the API /api/jobs/register (for example from the Makefile).
       // This service returns the detected job info so the caller may register it.
