@@ -5,8 +5,8 @@ start_a30:
 	@./vllm_serve_run_a30.sh ${MODEL} ${PORT} ${GPUS} ${CPUS} ${PERIOD} ${NODE}
 	@sleep 1
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2` ; \
-	GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
-	echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
+	@GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
+	@echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
 	@curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
 	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a30\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
@@ -17,8 +17,8 @@ start_a40:
 	@./vllm_serve_run_a40.sh ${MODEL} ${PORT} ${GPUS} ${CPUS} ${PERIOD} ${NODE}
 	@sleep 1
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2` ; \
-	GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
-	echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
+	@GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
+	@echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
 	@curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
 	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a40\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
@@ -29,8 +29,8 @@ start_a100:
 	@./vllm_serve_run_a100.sh ${MODEL} ${PORT} ${GPUS} ${CPUS} ${PERIOD} ${NODE}
 	@sleep 1
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2` ; \
-	GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
-	echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
+	@GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1` ; \
+	@echo "New job $$JOB_ID in GPU $$GPU_NODE" ; \
 	@curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
 	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a100\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
