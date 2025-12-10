@@ -748,4 +748,111 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/models/history/all - get all job history entries
+ *
+ * @openapi
+ * /api/models/history/all:
+ *   get:
+ *     summary: List all job history entries
+ *     tags:
+ *       - Job History
+ *     responses:
+ *       '200':
+ *         description: List of all job history entries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 jobHistory:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       jobId:
+ *                         type: string
+ *                       modelId:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                         enum: ['ongoing', 'ended']
+ *                       config:
+ *                         type: object
+ *                         properties:
+ *                           port:
+ *                             type: integer
+ *                           node:
+ *                             type: string
+ *                           gpus:
+ *                             type: integer
+ *                           cpus:
+ *                             type: integer
+ *                           period:
+ *                             type: string
+ *                       startTime:
+ *                         type: string
+ *                       endTime:
+ *                         type: string
+ */
+router.get('/history/all', async (req, res) => {
+  try {
+    const entries = await jobHistoryStore.getAll();
+    return respond.success(res, { count: entries.length, jobHistory: entries });
+  } catch (error) {
+    return respond.error(res, error.message || 'Failed to retrieve job history', 500);
+  }
+});
+
+/**
+ * GET /api/models/:id/history - get job history for a specific model
+ *
+ * @openapi
+ * /api/models/{id}/history:
+ *   get:
+ *     summary: Get job history for a specific model
+ *     tags:
+ *       - Job History
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Job history for the model
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 jobHistory:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       '404':
+ *         description: Model not found
+ */
+router.get('/:id/history', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const modelDoc = await modelStore.findModel(id);
+    if (!modelDoc) return respond.error(res, `Model ${id} not found`, 404);
+
+    const entries = await jobHistoryStore.findByModel(modelDoc.huggingFaceName);
+    return respond.success(res, { count: entries.length, jobHistory: entries });
+  } catch (error) {
+    return respond.error(res, error.message || 'Failed to retrieve job history for model', 500);
+  }
+});
+
 module.exports = router;
