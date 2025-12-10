@@ -27,7 +27,7 @@ class Model {
       throw new TypeError('Model constructor expects an options object');
     }
 
-    const { id, huggingFaceName, settings = {}, state = 'stopped' } = opts;
+    const { id, huggingFaceName, settings = {}, running = null, state = 'stopped' } = opts;
 
     if (typeof id !== 'string' || id.length === 0) {
       throw new TypeError('Model.id must be a non-empty string');
@@ -39,9 +39,17 @@ class Model {
     this.id = id;
     this.huggingFaceName = huggingFaceName;
     this.settings = Object.assign({}, Model.defaultSettings(), settings);
+    // running holds actual values used for the active job or nulls while stopped
+    if (running == null) {
+      this.running = Model.defaultRunning();
+    } else {
+      this.running = Object.assign({}, Model.defaultRunning(), running);
+    }
+
     this.state = String(state);
 
     Model._validateSettings(this.settings);
+    Model._validateRunning(this.running);
   }
 
   static defaultSettings() {
@@ -51,6 +59,16 @@ class Model {
       cpus: 8,
       node: 'gpu08',
       period: '24:00:00',
+    };
+  }
+
+  static defaultRunning() {
+    return {
+      port: null,
+      gpus: null,
+      cpus: null,
+      node: null,
+      period: null
     };
   }
 
@@ -78,11 +96,36 @@ class Model {
     }
   }
 
+  static _validateRunning(running) {
+    if (!running || typeof running !== 'object') {
+      throw new TypeError('running must be an object');
+    }
+
+    const { port, gpus, cpus, node, period } = running;
+
+    if (port !== null && (!Number.isInteger(port) || port <= 0)) {
+      throw new TypeError('running.port must be null or a positive integer');
+    }
+    if (gpus !== null && (!Number.isInteger(gpus) || gpus < 0)) {
+      throw new TypeError('running.gpus must be null or a non-negative integer');
+    }
+    if (cpus !== null && (!Number.isInteger(cpus) || cpus < 0)) {
+      throw new TypeError('running.cpus must be null or a non-negative integer');
+    }
+    if (node !== null && (typeof node !== 'string' || node.length === 0)) {
+      throw new TypeError('running.node must be null or a non-empty string');
+    }
+    if (period !== null && (typeof period !== 'string' || period.length === 0)) {
+      throw new TypeError('running.period must be null or a non-empty string');
+    }
+  }
+
   toJSON() {
     return {
       id: this.id,
       huggingFaceName: this.huggingFaceName,
       settings: Object.assign({}, this.settings),
+      running: Object.assign({}, this.running),
       state: this.state,
     };
   }

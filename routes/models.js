@@ -30,6 +30,33 @@ function _stateFromJob(job) {
 }
 
 /**
+ * GET /api/models - list all models with derived state
+ */
+router.get('/', async (req, res) => {
+  try {
+    const docs = await modelStore.getAll();
+
+    const modelsWithState = await Promise.all(docs.map(async (doc) => {
+      try {
+        const job = await _findJobForModel(doc.huggingFaceName);
+        const state = _stateFromJob(job);
+        // Ensure running field exists on older documents
+        const running = (doc.running && typeof doc.running === 'object') ? doc.running : Model.defaultRunning();
+        // If no job, running must be nulls
+        const runningNormalized = job ? running : Model.defaultRunning();
+        return Object.assign({}, doc, { state, running: runningNormalized });
+      } catch (innerErr) {
+        return Object.assign({}, doc, { state: 'Unknown', error: innerErr.message, running: Model.defaultRunning() });
+      }
+    }));
+
+    return respond.success(res, { count: modelsWithState.length, models: modelsWithState });
+  } catch (error) {
+    return respond.error(res, error.message || 'Failed to list models', 500);
+  }
+});
+
+/**
  * GET /api/models/:id - get model info including derived state
  */
 router.get('/:id', async (req, res) => {
@@ -40,8 +67,10 @@ router.get('/:id', async (req, res) => {
 
     const job = await _findJobForModel(doc.huggingFaceName);
     const state = _stateFromJob(job);
+    const running = (doc.running && typeof doc.running === 'object') ? doc.running : Model.defaultRunning();
+    const runningNormalized = job ? running : Model.defaultRunning();
 
-    return respond.success(res, { model: Object.assign({}, doc, { state }) });
+    return respond.success(res, { model: Object.assign({}, doc, { state, running: runningNormalized }) });
   } catch (error) {
     return respond.error(res, error.message || 'Failed to get model', 500);
   }
@@ -58,7 +87,9 @@ router.get('/:id/state', async (req, res) => {
 
     const job = await _findJobForModel(doc.huggingFaceName);
     const state = _stateFromJob(job);
-    return respond.success(res, { state });
+    const running = (doc.running && typeof doc.running === 'object') ? doc.running : Model.defaultRunning();
+    const runningNormalized = job ? running : Model.defaultRunning();
+    return respond.success(res, { state, running: runningNormalized });
   } catch (error) {
     return respond.error(res, error.message || 'Failed to get model state', 500);
   }
@@ -69,13 +100,13 @@ router.get('/:id/state', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { id, huggingFaceName, settings = {}, state = 'Stopped' } = req.body || {};
+    const { id, huggingFaceName, settings = {}, running = null, state = 'Stopped' } = req.body || {};
     // Basic validation
     if (!id || !huggingFaceName) return respond.error(res, 'Missing required fields: id and huggingFaceName', 400);
     // Construct Model instance to validate
     let modelObj;
     try {
-      modelObj = new Model({ id, huggingFaceName, settings, state });
+      modelObj = new Model({ id, huggingFaceName, settings, running, state });
     } catch (err) {
       return respond.error(res, err.message || 'Invalid model data', 400);
     }
@@ -145,9 +176,16 @@ router.post('/:id/run', async (req, res) => {
       console.warn('Failed to persist job after start:', err.message || err);
     }
 
-    // Update stored model state to Setting up (informational)
+    // Update stored model state to Setting up and set running values
     try {
-      await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Setting up' }));
+      const runningValues = {
+        port: options.port,
+        gpus: options.gpus,
+        cpus: options.cpus,
+        node: options.node,
+        period: options.period
+      };
+      await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Setting up', running: runningValues }));
     } catch (err) {
       // Non-fatal
     }
@@ -176,9 +214,9 @@ router.post('/:id/stop', async (req, res) => {
       return respond.error(res, result && result.error ? result.error : 'Failed to cancel job', 500, result || {});
     }
 
-    // Update stored model state to Stopped
+    // Update stored model state to Stopped and clear running values
     try {
-      await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Stopped' }));
+      await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Stopped', running: Model.defaultRunning() }));
     } catch (err) {
       // ignore
     }
