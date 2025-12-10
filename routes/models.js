@@ -375,6 +375,15 @@ router.post('/', async (req, res) => {
  *                 description: Node to request (node determines GPU type)
  *               period:
  *                 type: string
+ *           examples:
+ *             createdModel:
+ *               summary: Example body to create a model
+ *               value:
+ *                 port: 9000
+ *                 gpus: 4
+ *                 cpus: 4
+ *                 period: "01:00:00"
+ *                 node: "gpu04"
  *     responses:
  *       '200':
  *         description: Job started (or registration accepted)
