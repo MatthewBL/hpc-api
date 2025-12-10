@@ -11,9 +11,9 @@ const slurmService = require('../services/slurmService');
 const router = express.Router();
 
 // Helpers
-async function _findJobForModel(huggingFaceName) {
+async function _findJobForModel(modelId) {
   const jobs = await jobStore.getAll();
-  return jobs.find(j => String(j.model) === String(huggingFaceName)) || null;
+  return jobs.find(j => String(j.model) === String(modelId)) || null;
 }
 
 function _formatElapsed(startIso) {
@@ -131,7 +131,7 @@ router.get('/', async (req, res) => {
 
     const modelsWithState = await Promise.all(docs.map(async (doc) => {
       try {
-        const job = await _findJobForModel(doc.huggingFaceName);
+        const job = await _findJobForModel(doc.id);
         const state = _stateFromJob(job);
         // Ensure running field exists on older documents
         const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
@@ -223,7 +223,7 @@ router.get('/:id', async (req, res) => {
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
-    const job = await _findJobForModel(doc.huggingFaceName);
+    const job = await _findJobForModel(doc.id);
     const state = _stateFromJob(job);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
     const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
@@ -284,7 +284,7 @@ router.get('/:id/state', async (req, res) => {
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
-    const job = await _findJobForModel(doc.huggingFaceName);
+    const job = await _findJobForModel(doc.id);
     const state = _stateFromJob(job);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
     const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
@@ -439,7 +439,7 @@ router.post('/:id/run', async (req, res) => {
     if (!modelDoc) return respond.error(res, `Model ${id} not found`, 404);
 
     // Prevent starting if a job already exists for this model
-    const existingJob = await _findJobForModel(modelDoc.huggingFaceName);
+    const existingJob = await _findJobForModel(modelDoc.id);
     if (existingJob) return respond.error(res, 'Model already has a running job', 409);
 
     // Build run options by merging defaults, stored settings, and body overrides
@@ -467,7 +467,7 @@ router.post('/:id/run', async (req, res) => {
     if (result.jobId) {
       const jobInfo = {
         port: options.port,
-        model: modelDoc.huggingFaceName,
+        model: modelDoc.id,
         node: result.gpuNode || options.node || '',
         gpuType,
         startTime: new Date().toISOString()
@@ -675,7 +675,7 @@ router.post('/:id/stop', async (req, res) => {
     const modelDoc = await modelStore.findModel(id);
     if (!modelDoc) return respond.error(res, `Model ${id} not found`, 404);
 
-    const job = await _findJobForModel(modelDoc.huggingFaceName);
+    const job = await _findJobForModel(modelDoc.id);
     if (!job) return respond.error(res, 'No running job found for this model', 404);
 
     const result = await slurmService.cancelJob(job._id);
@@ -734,7 +734,7 @@ router.delete('/:id', async (req, res) => {
     const modelDoc = await modelStore.findModel(id);
     if (!modelDoc) return respond.error(res, `Model ${id} not found`, 404);
 
-    const job = await _findJobForModel(modelDoc.huggingFaceName);
+    const job = await _findJobForModel(modelDoc.id);
     if (job) return respond.error(res, 'Model has an active job; stop it before deleting', 409);
 
     try {
