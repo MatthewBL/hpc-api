@@ -100,7 +100,7 @@ function _gpuTypeFromNode(node) {
  *                          cpus: null
  *                          node: null
  *                          period: null
- *                       state: "stopped"
+ *                       state: "Stopped"
  *                       _id: "deepseek_qwen_7B"
  */
 router.get('/', async (req, res) => {
@@ -165,6 +165,28 @@ router.get('/', async (req, res) => {
  *                       type: object
  *                     state:
  *                       type: string
+ *     examples:
+ *       deepseek_qwen_7B:
+ *         summary: Example response with the deepseek_qwen_7B model
+ *         value:
+ *           success: true
+ *           model:
+ *             - id: "deepseek_qwen_7B"
+ *               huggingFaceName: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+ *               settings:
+ *                  port: 9000
+ *                  gpus: 4
+ *                  cpus: 8
+ *                  node: "gpu08"
+ *                  period: "24:00:00"
+ *               running:
+ *                  port: null
+ *                  gpus: null
+ *                  cpus: null
+ *                  node: null
+ *                  period: null
+ *              state: "Stopped"
+ *              _id: "deepseek_qwen_7B"
  *       '404':
  *         description: Model not found
  */
@@ -214,6 +236,18 @@ router.get('/:id', async (req, res) => {
  *                   type: string
  *                 running:
  *                   type: object
+ *    examples:
+ *    deepseek_qwen_7B:
+ *      summary: Example response with the deepseek_qwen_7B model state
+ *         value:
+ *           success: true
+ *           state: "Running"
+ *           running:
+ *              port: 9000
+ *              gpus: 4
+ *              cpus: 4
+ *              node: "gpu04"
+ *              period: "01:00:00"
  *       '404':
  *         description: Model not found
  */
@@ -262,6 +296,12 @@ router.get('/:id/state', async (req, res) => {
  *                 type: object
  *               state:
  *                 type: string
+ *           examples:
+ *             createdModel:
+ *               summary: Example body to create a model
+ *               value:
+ *                 id: "deepseek_qwen_7B"
+ *                 huggingFaceName: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
  *     responses:
  *       '201':
  *         description: Model created
