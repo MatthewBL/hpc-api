@@ -503,6 +503,18 @@ router.post('/:id/run', async (req, res) => {
  *                 type: object
  *               state:
  *                 type: string
+ *           examples:
+ *             editedModel:
+ *               summary: Example body to edit a model
+ *               value:
+ *                 id: "deepseek_qwen_7B"
+ *                 huggingFaceName: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+ *                 settings:
+ *                   port: 9000
+ *                   gpus: 4
+ *                   cpus: 4
+ *                   period: "01:00:00"
+ *                   node: "gpu02"
  *     responses:
  *       '200':
  *         description: Model updated
