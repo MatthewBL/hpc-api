@@ -15,31 +15,46 @@ class SlurmService {
     } = options;
 
     try {
-      const { stdout } = await execAsync(
-        `make start_${gpuType} MODEL=${model} PORT=${port} GPUS=${gpus} CPUS=${cpus} PERIOD=${period} NODE=${node}`
-      );
+      // Call sbatch directly to get the job ID from the output
+      // instead of querying squeue (which has race condition issues with multiple jobs)
+      const sbatchCommand = `make start_${gpuType} MODEL=${model} PORT=${port} GPUS=${gpus} CPUS=${cpus} PERIOD=${period} NODE=${node}`;
+      const { stdout, stderr } = await execAsync(sbatchCommand);
       
-      // The Makefile itself registers the job by curling /api/jobs/register, but
-      // the stdout from `make` may not contain structured job info. Query squeue
-      // directly to find the most recent job with the temp_ name pattern (same
-      // logic as used in the Makefile) so we can return jobId and gpuNode.
       let jobId = null;
       let gpuNode = null;
-      try {
-        // Get the most recent job id for temp_ jobs
-        const { stdout: idOut } = await execAsync("squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2 | head -1");
-        jobId = idOut ? idOut.trim() : null;
-
-        // Get the node name for the most recent temp_ job
-        const { stdout: nodeOut } = await execAsync("squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1");
-        gpuNode = nodeOut ? nodeOut.trim() : null;
-      } catch (parseErr) {
-        // Non-fatal: keep jobId/gpuNode as null if parsing fails
-        console.warn('Failed to parse squeue for jobId/gpuNode:', parseErr.message || parseErr);
+      
+      // Parse stdout for the job ID from sbatch output
+      // sbatch typically outputs: "Submitted batch job 12345"
+      const sbatchMatch = stdout.match(/Submitted batch job (\d+)/);
+      if (sbatchMatch) {
+        jobId = sbatchMatch[1];
       }
-      // NOTE: Persistence/registration of the job is performed externally
-      // by calling the API /api/jobs/register (for example from the Makefile).
-      // This service returns the detected job info so the caller may register it.
+      
+      // If we couldn't extract job ID from sbatch output, try stderr as well
+      if (!jobId && stderr) {
+        const stderrMatch = stderr.match(/Submitted batch job (\d+)/);
+        if (stderrMatch) {
+          jobId = stderrMatch[1];
+        }
+      }
+
+      // Try to get the node name if we have a job ID
+      if (jobId) {
+        try {
+          // Query squeue for THIS specific job to get the node
+          const { stdout: squeueOut } = await execAsync(`squeue -j ${jobId} -o "%N" --noheader`);
+          gpuNode = squeueOut ? squeueOut.trim() : node;
+        } catch (nodeErr) {
+          console.warn(`Failed to get node for job ${jobId}:`, nodeErr.message || nodeErr);
+          gpuNode = node; // Fallback to requested node
+        }
+      } else {
+        // If we still don't have a job ID, this is a problem
+        console.warn('Could not extract job ID from sbatch output');
+        console.warn('stdout:', stdout);
+        console.warn('stderr:', stderr);
+        gpuNode = node;
+      }
       
       return {
         success: true,
