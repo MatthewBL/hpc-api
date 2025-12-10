@@ -855,4 +855,48 @@ router.get('/:id/history', async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/models/history/all - delete all job history entries
+ *
+ * @openapi
+ * /api/models/history/all:
+ *   delete:
+ *     summary: Delete all job history entries
+ *     tags:
+ *       - Job History
+ *     description: Removes all job history entries from the database
+ *     responses:
+ *       '200':
+ *         description: Job history deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 deletedCount:
+ *                   type: integer
+ *             examples:
+ *               deleted:
+ *                 summary: Example response after deletion
+ *                 value:
+ *                   success: true
+ *                   message: "All job history deleted successfully"
+ *                   deletedCount: 5
+ */
+router.delete('/history/all', async (req, res) => {
+  try {
+    const deletedCount = await jobHistoryStore.removeAll();
+    return respond.success(res, { 
+      message: 'All job history deleted successfully', 
+      deletedCount 
+    });
+  } catch (error) {
+    return respond.error(res, error.message || 'Failed to delete job history', 500);
+  }
+});
+
 module.exports = router;

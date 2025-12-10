@@ -105,11 +105,25 @@ function removeJob(jobId) {
   });
 }
 
+/**
+ * Remove all job history entries
+ * @returns {Promise<number>} - number of documents removed
+ */
+function removeAll() {
+  return new Promise((resolve, reject) => {
+    db.remove({}, { multi: true }, (err, numRemoved) => {
+      if (err) return reject(err);
+      resolve(numRemoved);
+    });
+  });
+}
+
 module.exports = {
   getAll,
   findJob,
   findByModel,
   addJob,
   updateJobStatus,
-  removeJob
+  removeJob,
+  removeAll
 };
