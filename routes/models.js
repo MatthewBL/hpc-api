@@ -236,18 +236,18 @@ router.get('/:id', async (req, res) => {
  *                   type: string
  *                 running:
  *                   type: object
- *    examples:
- *    deepseek_qwen_7B:
- *      summary: Example response with the deepseek_qwen_7B model state
- *         value:
- *           success: true
- *           state: "Running"
- *           running:
- *            - port: 9000
- *              gpus: 4
- *              cpus: 4
- *              node: "gpu04"
- *              period: "01:00:00"
+ *             examples:
+ *               deepseek_qwen_7B:
+ *                 summary: Example response with the deepseek_qwen_7B model state
+ *                 value:
+ *                   success: true
+ *                   state: "Running"
+ *                   running:
+ *                    port: 9000
+ *                    gpus: 4
+ *                    cpus: 4
+ *                    node: "gpu04"
+ *                    period: "01:00:00"
  *       '404':
  *         description: Model not found
  */
