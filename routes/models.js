@@ -165,28 +165,28 @@ router.get('/', async (req, res) => {
  *                       type: object
  *                     state:
  *                       type: string
- *     examples:
- *       deepseek_qwen_7B:
- *         summary: Example response with the deepseek_qwen_7B model
- *         value:
- *           success: true
- *           model:
- *             - id: "deepseek_qwen_7B"
- *               huggingFaceName: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
- *               settings:
- *                  port: 9000
- *                  gpus: 4
- *                  cpus: 8
- *                  node: "gpu08"
- *                  period: "24:00:00"
- *               running:
- *                  port: null
- *                  gpus: null
- *                  cpus: null
- *                  node: null
- *                  period: null
- *              state: "Stopped"
- *              _id: "deepseek_qwen_7B"
+ *        examples:
+ *          deepseek_qwen_7B:
+ *            summary: Example response with the deepseek_qwen_7B model
+ *            value:
+ *               success: true
+ *               model:
+ *                 - id: "deepseek_qwen_7B"
+ *                  huggingFaceName: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+ *                  settings:
+ *                      port: 9000
+ *                      gpus: 4
+ *                     cpus: 8
+ *                      node: "gpu08"
+ *                      period: "24:00:00"
+ *                   running:
+ *                      port: null
+ *                      gpus: null
+ *                      cpus: null
+ *                      node: null
+ *                      period: null
+ *                  state: "Stopped"
+ *                  _id: "deepseek_qwen_7B"
  *       '404':
  *         description: Model not found
  */
