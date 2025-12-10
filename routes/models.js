@@ -29,6 +29,19 @@ function _stateFromJob(job) {
   }
 }
 
+// Map a node name to the GPU type used by our Makefile/cluster
+function _gpuTypeFromNode(node) {
+  if (!node) return 'a100';
+  const n = String(node).toLowerCase();
+  const a30 = new Set(['gpu01', 'gpu02']);
+  const a40 = new Set(['gpu03', 'gpu04', 'gpu05', 'gpu06']);
+  const a100 = new Set(['gpu07', 'gpu08']);
+  if (a30.has(n)) return 'a30';
+  if (a40.has(n)) return 'a40';
+  if (a100.has(n)) return 'a100';
+  return 'a100';
+}
+
 /**
  * GET /api/models - list all models with derived state
  */
@@ -142,8 +155,8 @@ router.post('/:id/run', async (req, res) => {
     const baseSettings = Model.defaultSettings();
     const merged = Object.assign({}, baseSettings, modelDoc.settings || {}, body);
 
-    // Extract gpuType optionally (default to a100)
-    const gpuType = body.gpuType || 'a100';
+    // Determine gpuType from the requested/merged node (defaults to a100)
+    const gpuType = _gpuTypeFromNode(merged.node);
 
     const options = {
       model: modelDoc.huggingFaceName,
