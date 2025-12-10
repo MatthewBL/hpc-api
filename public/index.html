@@ -510,6 +510,7 @@
             <div class="modal-header">Job History</div>
             <div id="historyContent"></div>
             <div class="form-actions">
+                <button class="btn btn-danger" onclick="app.deleteAllHistory()">🗑️ Delete All History</button>
                 <button class="btn btn-secondary" onclick="app.closeHistoryModal()">Close</button>
             </div>
         </div>
@@ -918,6 +919,28 @@
 
             closeHistoryModal() {
                 document.getElementById('historyModal').classList.remove('active');
+            },
+
+            async deleteAllHistory() {
+                if (!confirm('Are you sure you want to delete ALL job history? This action cannot be undone.')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${this.apiBase}/history/all`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) throw new Error('Failed to delete history');
+                    
+                    const data = await response.json();
+                    this.showNotification(`Successfully deleted ${data.deletedCount} history entries`, 'success');
+                    
+                    // Refresh the history view
+                    await this.showHistoryModal();
+                } catch (error) {
+                    this.showNotification(`Error: ${error.message}`, 'error');
+                }
             },
 
             showNotification(message, type = 'info') {
