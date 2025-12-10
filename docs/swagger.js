@@ -2,6 +2,8 @@
 const swaggerJSDoc = require('swagger-jsdoc');
 const packageJson = require('../package.json');
 
+const modelsPaths = require('./models.paths');
+
 const options = {
   definition: {
     openapi: '3.0.3',
@@ -25,5 +27,8 @@ const options = {
 };
 
 const swaggerSpec = swaggerJSDoc(options);
+
+// Merge explicit ordered model paths first so they appear in desired order
+swaggerSpec.paths = Object.assign({}, modelsPaths, swaggerSpec.paths || {});
 
 module.exports = swaggerSpec;
