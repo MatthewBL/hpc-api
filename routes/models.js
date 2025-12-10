@@ -387,8 +387,6 @@ router.post('/', async (req, res) => {
  *               period:
  *                 type: string
  *           examples:
- *             runModel:
- *               summary: Example body to run a model
  *             runModelCustomParameters:
  *               summary: Example body to run a model with custom parameters
  *               value:
