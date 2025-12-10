@@ -482,7 +482,7 @@ router.post('/:id/run', async (req, res) => {
       // Record the job in job history with status 'ongoing'
       try {
         await jobHistoryStore.addJob(result.jobId, {
-          modelId: modelDoc.huggingFaceName,
+          modelId: modelDoc.id,
           status: 'ongoing',
           config: {
             port: options.port,
@@ -848,7 +848,7 @@ router.get('/:id/history', async (req, res) => {
     const modelDoc = await modelStore.findModel(id);
     if (!modelDoc) return respond.error(res, `Model ${id} not found`, 404);
 
-    const entries = await jobHistoryStore.findByModel(modelDoc.huggingFaceName);
+    const entries = await jobHistoryStore.findByModel(modelDoc.id);
     return respond.success(res, { count: entries.length, jobHistory: entries });
   } catch (error) {
     return respond.error(res, error.message || 'Failed to retrieve job history for model', 500);

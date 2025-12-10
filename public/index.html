@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPC Model Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .action-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .model-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .model-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .model-id {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .model-status {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-running {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-stopped {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .status-setting-up {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .model-info {
+            margin-bottom: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-label {
+            color: #718096;
+            font-weight: 600;
+        }
+
+        .info-value {
+            color: #2d3748;
+            font-family: 'Courier New', monospace;
+        }
+
+        .model-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 35px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            font-size: 1.8em;
+            margin-bottom: 25px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2em;
+        }
+
+        .empty-state {
+            background: white;
+            padding: 60px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .empty-state h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .empty-state p {
+            color: #718096;
+            margin-bottom: 25px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            background: #48bb78;
+        }
+
+        .notification.error {
+            background: #f56565;
+        }
+
+        .notification.info {
+            background: #4299e1;
+        }
+
+        .history-table {
+            width: 100%;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .history-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .history-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .history-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .history-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .api-config {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .api-config input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .small-text {
+            font-size: 0.85em;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .running-config {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .running-config-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 HPC Model Manager</h1>
+            <p class="subtitle">Manage and monitor your high-performance computing models</p>
+        </header>
+
+        <div class="action-bar">
+            <div class="api-config">
+                <label style="font-weight: 600; color: #2d3748;">API URL:</label>
+                <input type="text" id="apiBaseUrl" value="http://localhost:8080/api/models" />
+            </div>
+            <button class="btn btn-primary" onclick="app.showCreateModal()">➕ Add Model</button>
+            <button class="btn btn-secondary" onclick="app.loadModels()">🔄 Refresh</button>
+            <button class="btn btn-warning" onclick="app.showHistoryModal()">📊 View History</button>
+        </div>
+
+        <div id="loadingState" class="loading">
+            Loading models...
+        </div>
+
+        <div id="modelsContainer" class="models-grid"></div>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h2>No Models Yet</h2>
+            <p>Get started by creating your first model</p>
+            <button class="btn btn-primary" onclick="app.showCreateModal()">Create First Model</button>
+        </div>
+    </div>
+
+    <!-- Create/Edit Model Modal -->
+    <div id="modelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">Create New Model</div>
+            <form id="modelForm" onsubmit="app.handleModelSubmit(event)">
+                <div class="form-group">
+                    <label class="form-label">Model ID *</label>
+                    <input type="text" class="form-input" id="modelId" required 
+                           placeholder="e.g., deepseek_qwen_7B" />
+                    <div class="small-text">Unique identifier for this model</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">HuggingFace Name *</label>
+                    <input type="text" class="form-input" id="huggingFaceName" required 
+                           placeholder="e.g., deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" />
+                    <div class="small-text">Full HuggingFace model path</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Port</label>
+                    <input type="number" class="form-input" id="port" value="9000" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">GPUs</label>
+                    <input type="number" class="form-input" id="gpus" value="4" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">CPUs</label>
+                    <input type="number" class="form-input" id="cpus" value="8" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Node</label>
+                    <input type="text" class="form-input" id="node" value="gpu08" 
+                           placeholder="e.g., gpu08" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Period</label>
+                    <input type="text" class="form-input" id="period" value="24:00:00" 
+                           placeholder="HH:MM:SS format" />
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Model</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Run Model Modal -->
+    <div id="runModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Run Model: <span id="runModelName"></span></div>
+            <form id="runForm" onsubmit="app.handleRunSubmit(event)">
+                <input type="hidden" id="runModelId" />
+                
+                <div class="form-group">
+                    <label class="form-label">Port</label>
+                    <input type="number" class="form-input" id="runPort" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">GPUs</label>
+                    <input type="number" class="form-input" id="runGpus" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">CPUs</label>
+                    <input type="number" class="form-input" id="runCpus" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Node</label>
+                    <input type="text" class="form-input" id="runNode" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Period</label>
+                    <input type="text" class="form-input" id="runPeriod" placeholder="HH:MM:SS" />
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeRunModal()">Cancel</button>
+                    <button type="submit" class="btn btn-success">Start Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">Job History</div>
+            <div id="historyContent"></div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="app.closeHistoryModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            apiBase: '',
+            editingModelId: null,
+
+            init() {
+                this.apiBase = document.getElementById('apiBaseUrl').value;
+                this.loadModels();
+                
+                // Auto-refresh every 5 seconds
+                setInterval(() => this.loadModels(), 5000);
+
+                // Update API base when changed
+                document.getElementById('apiBaseUrl').addEventListener('change', (e) => {
+                    this.apiBase = e.target.value;
+                    this.loadModels();
+                });
+            },
+
+            async loadModels() {
+                this.apiBase = document.getElementById('apiBaseUrl').value;
+                const container = document.getElementById('modelsContainer');
+                const loading = document.getElementById('loadingState');
+                const empty = document.getElementById('emptyState');
+
+                try {
+                    const response = await fetch(this.apiBase);
+                    if (!response.ok) throw new Error('Failed to fetch models');
+                    
+                    const data = await response.json();
+                    const models = data.models || [];
+
+                    loading.style.display = 'none';
+
+                    if (models.length === 0) {
+                        container.innerHTML = '';
+                        empty.style.display = 'block';
+                        return;
+                    }
+
+                    empty.style.display = 'none';
+                    container.innerHTML = models.map(model => this.renderModelCard(model)).join('');
+                } catch (error) {
+                    loading.style.display = 'none';
+                    this.showNotification('Failed to load models: ' + error.message, 'error');
+                }
+            },
+
+            renderModelCard(model) {
+                const state = model.state || 'Stopped';
+                const stateClass = state.toLowerCase().replace(/\s+/g, '-');
+                const isRunning = state === 'Running';
+                const isStopped = state === 'Stopped';
+                const running = model.running || {};
+
+                let runningInfo = '';
+                if (!isStopped && (running.port || running.gpus || running.node)) {
+                    runningInfo = `
+                        <div class="running-config">
+                            <div class="running-config-title">Current Configuration</div>
+                            ${running.port ? `<div class="info-row"><span class="info-label">Port:</span> <span class="info-value">${running.port}</span></div>` : ''}
+                            ${running.gpus ? `<div class="info-row"><span class="info-label">GPUs:</span> <span class="info-value">${running.gpus}</span></div>` : ''}
+                            ${running.cpus ? `<div class="info-row"><span class="info-label">CPUs:</span> <span class="info-value">${running.cpus}</span></div>` : ''}
+                            ${running.node ? `<div class="info-row"><span class="info-label">Node:</span> <span class="info-value">${running.node}</span></div>` : ''}
+                            ${running.period ? `<div class="info-row"><span class="info-label">Period:</span> <span class="info-value">${running.period}</span></div>` : ''}
+                            ${running.time ? `<div class="info-row"><span class="info-label">Running Time:</span> <span class="info-value">${running.time}</span></div>` : ''}
+                            ${running.job_id ? `<div class="info-row"><span class="info-label">Job ID:</span> <span class="info-value">${running.job_id}</span></div>` : ''}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="model-card">
+                        <div class="model-header">
+                            <div class="model-id">${model.id}</div>
+                            <div class="model-status status-${stateClass}">${state}</div>
+                        </div>
+                        <div class="model-info">
+                            <div class="info-row">
+                                <span class="info-label">HuggingFace:</span>
+                                <span class="info-value" style="font-size: 0.9em;">${model.huggingFaceName}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Default Port:</span>
+                                <span class="info-value">${model.settings?.port || 'N/A'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Default GPUs:</span>
+                                <span class="info-value">${model.settings?.gpus || 'N/A'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Default Node:</span>
+                                <span class="info-value">${model.settings?.node || 'N/A'}</span>
+                            </div>
+                        </div>
+                        ${runningInfo}
+                        <div class="model-actions">
+                            ${isStopped ? `
+                                <button class="btn btn-success" onclick="app.showRunModal('${model.id}')">▶️ Run</button>
+                            ` : `
+                                <button class="btn btn-danger" onclick="app.stopModel('${model.id}')">⏹️ Stop</button>
+                            `}
+                            <button class="btn btn-primary" onclick="app.showEditModal('${model.id}')">✏️ Edit</button>
+                            <button class="btn btn-danger" onclick="app.deleteModel('${model.id}')" 
+                                    ${!isStopped ? 'disabled' : ''}>🗑️ Delete</button>
+                            <button class="btn btn-secondary" onclick="app.viewModelHistory('${model.id}')">📜 History</button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            showCreateModal() {
+                this.editingModelId = null;
+                document.getElementById('modalTitle').textContent = 'Create New Model';
+                document.getElementById('modelForm').reset();
+                document.getElementById('modelId').disabled = false;
+                document.getElementById('modelModal').classList.add('active');
+            },
+
+            async showEditModal(id) {
+                this.editingModelId = id;
+                document.getElementById('modalTitle').textContent = 'Edit Model';
+                
+                try {
+                    const response = await fetch(`${this.apiBase}/${id}`);
+                    if (!response.ok) throw new Error('Failed to fetch model');
+                    
+                    const data = await response.json();
+                    const model = data.model;
+
+                    document.getElementById('modelId').value = model.id;
+                    document.getElementById('modelId').disabled = true;
+                    document.getElementById('huggingFaceName').value = model.huggingFaceName;
+                    document.getElementById('port').value = model.settings?.port || 9000;
+                    document.getElementById('gpus').value = model.settings?.gpus || 4;
+                    document.getElementById('cpus').value = model.settings?.cpus || 8;
+                    document.getElementById('node').value = model.settings?.node || 'gpu08';
+                    document.getElementById('period').value = model.settings?.period || '24:00:00';
+
+                    document.getElementById('modelModal').classList.add('active');
+                } catch (error) {
+                    this.showNotification('Failed to load model: ' + error.message, 'error');
+                }
+            },
+
+            closeModal() {
+                document.getElementById('modelModal').classList.remove('active');
+                this.editingModelId = null;
+            },
+
+            async handleModelSubmit(event) {
+                event.preventDefault();
+
+                const modelData = {
+                    id: document.getElementById('modelId').value,
+                    huggingFaceName: document.getElementById('huggingFaceName').value,
+                    settings: {
+                        port: parseInt(document.getElementById('port').value),
+                        gpus: parseInt(document.getElementById('gpus').value),
+                        cpus: parseInt(document.getElementById('cpus').value),
+                        node: document.getElementById('node').value,
+                        period: document.getElementById('period').value
+                    }
+                };
+
+                try {
+                    let response;
+                    if (this.editingModelId) {
+                        // Update existing model
+                        response = await fetch(`${this.apiBase}/${this.editingModelId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(modelData)
+                        });
+                    } else {
+                        // Create new model
+                        response = await fetch(this.apiBase, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(modelData)
+                        });
+                    }
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to save model');
+                    }
+
+                    this.showNotification(
+                        this.editingModelId ? 'Model updated successfully' : 'Model created successfully',
+                        'success'
+                    );
+                    this.closeModal();
+                    this.loadModels();
+                } catch (error) {
+                    this.showNotification(error.message, 'error');
+                }
+            },
+
+            async showRunModal(id) {
+                try {
+                    const response = await fetch(`${this.apiBase}/${id}`);
+                    if (!response.ok) throw new Error('Failed to fetch model');
+                    
+                    const data = await response.json();
+                    const model = data.model;
+
+                    document.getElementById('runModelId').value = model.id;
+                    document.getElementById('runModelName').textContent = model.id;
+                    document.getElementById('runPort').value = model.settings?.port || 9000;
+                    document.getElementById('runGpus').value = model.settings?.gpus || 4;
+                    document.getElementById('runCpus').value = model.settings?.cpus || 8;
+                    document.getElementById('runNode').value = model.settings?.node || 'gpu08';
+                    document.getElementById('runPeriod').value = model.settings?.period || '24:00:00';
+
+                    document.getElementById('runModal').classList.add('active');
+                } catch (error) {
+                    this.showNotification('Failed to load model: ' + error.message, 'error');
+                }
+            },
+
+            closeRunModal() {
+                document.getElementById('runModal').classList.remove('active');
+            },
+
+            async handleRunSubmit(event) {
+                event.preventDefault();
+
+                const id = document.getElementById('runModelId').value;
+                const runConfig = {
+                    port: parseInt(document.getElementById('runPort').value),
+                    gpus: parseInt(document.getElementById('runGpus').value),
+                    cpus: parseInt(document.getElementById('runCpus').value),
+                    node: document.getElementById('runNode').value,
+                    period: document.getElementById('runPeriod').value
+                };
+
+                try {
+                    const response = await fetch(`${this.apiBase}/${id}/run`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(runConfig)
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to start model');
+                    }
+
+                    const result = await response.json();
+                    this.showNotification(
+                        `Model started successfully${result.jobId ? ` (Job ID: ${result.jobId})` : ''}`,
+                        'success'
+                    );
+                    this.closeRunModal();
+                    this.loadModels();
+                } catch (error) {
+                    this.showNotification(error.message, 'error');
+                }
+            },
+
+            async stopModel(id) {
+                if (!confirm('Are you sure you want to stop this model?')) return;
+
+                try {
+                    const response = await fetch(`${this.apiBase}/${id}/stop`, {
+                        method: 'POST'
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to stop model');
+                    }
+
+                    this.showNotification('Model stopped successfully', 'success');
+                    this.loadModels();
+                } catch (error) {
+                    this.showNotification(error.message, 'error');
+                }
+            },
+
+            async deleteModel(id) {
+                if (!confirm(`Are you sure you want to delete model "${id}"? This action cannot be undone.`)) return;
+
+                try {
+                    const response = await fetch(`${this.apiBase}/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to delete model');
+                    }
+
+                    this.showNotification('Model deleted successfully', 'success');
+                    this.loadModels();
+                } catch (error) {
+                    this.showNotification(error.message, 'error');
+                }
+            },
+
+            async showHistoryModal() {
+                document.getElementById('historyModal').classList.add('active');
+                const content = document.getElementById('historyContent');
+                content.innerHTML = '<div class="loading">Loading history...</div>';
+
+                try {
+                    const response = await fetch(`${this.apiBase}/history/all`);
+                    if (!response.ok) throw new Error('Failed to fetch history');
+                    
+                    const data = await response.json();
+                    const history = data.jobHistory || [];
+
+                    if (history.length === 0) {
+                        content.innerHTML = '<p style="text-align: center; padding: 20px; color: #718096;">No job history available</p>';
+                        return;
+                    }
+
+                    content.innerHTML = `
+                        <div class="history-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Job ID</th>
+                                        <th>Model</th>
+                                        <th>Status</th>
+                                        <th>Node</th>
+                                        <th>Port</th>
+                                        <th>Start Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${history.map(job => `
+                                        <tr>
+                                            <td><code>${job.jobId || job._id}</code></td>
+                                            <td>${job.modelId || 'N/A'}</td>
+                                            <td><span class="model-status status-${job.status === 'ongoing' ? 'running' : 'stopped'}">${job.status}</span></td>
+                                            <td>${job.config?.node || 'N/A'}</td>
+                                            <td>${job.config?.port || 'N/A'}</td>
+                                            <td>${job.startTime ? new Date(job.startTime).toLocaleString() : 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } catch (error) {
+                    content.innerHTML = `<p style="color: #f56565; text-align: center; padding: 20px;">Error: ${error.message}</p>`;
+                }
+            },
+
+            async viewModelHistory(id) {
+                document.getElementById('historyModal').classList.add('active');
+                const content = document.getElementById('historyContent');
+                content.innerHTML = '<div class="loading">Loading history...</div>';
+
+                try {
+                    const response = await fetch(`${this.apiBase}/${id}/history`);
+                    if (!response.ok) throw new Error('Failed to fetch history');
+                    
+                    const data = await response.json();
+                    const history = data.jobHistory || [];
+
+                    if (history.length === 0) {
+                        content.innerHTML = `<p style="text-align: center; padding: 20px; color: #718096;">No job history for model "${id}"</p>`;
+                        return;
+                    }
+
+                    content.innerHTML = `
+                        <div class="history-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Job ID</th>
+                                        <th>Status</th>
+                                        <th>Node</th>
+                                        <th>GPUs/CPUs</th>
+                                        <th>Port</th>
+                                        <th>Start Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${history.map(job => `
+                                        <tr>
+                                            <td><code>${job.jobId || job._id}</code></td>
+                                            <td><span class="model-status status-${job.status === 'ongoing' ? 'running' : 'stopped'}">${job.status}</span></td>
+                                            <td>${job.config?.node || 'N/A'}</td>
+                                            <td>${job.config?.gpus || '?'}/${job.config?.cpus || '?'}</td>
+                                            <td>${job.config?.port || 'N/A'}</td>
+                                            <td>${job.startTime ? new Date(job.startTime).toLocaleString() : 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } catch (error) {
+                    content.innerHTML = `<p style="color: #f56565; text-align: center; padding: 20px;">Error: ${error.message}</p>`;
+                }
+            },
+
+            closeHistoryModal() {
+                document.getElementById('historyModal').classList.remove('active');
+            },
+
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.remove();
+                }, 4000);
+            }
+        };
+
+        // Initialize the app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>
