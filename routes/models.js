@@ -387,8 +387,8 @@ router.post('/', async (req, res) => {
  *               period:
  *                 type: string
  *           examples:
- *             createdModel:
- *               summary: Example body to create a model
+ *             runModel:
+ *               summary: Example body to run a model
  *               value:
  *                 port: 9000
  *                 gpus: 4
