@@ -116,6 +116,13 @@ router.post('/', async (req, res) => {
     const { id, huggingFaceName, settings = {}, running = null, state = 'Stopped' } = req.body || {};
     // Basic validation
     if (!id || !huggingFaceName) return respond.error(res, 'Missing required fields: id and huggingFaceName', 400);
+    // Prevent accidental overwrite: fail if model id already exists
+    try {
+      const exists = await modelStore.findModel(id);
+      if (exists) return respond.error(res, `Model ${id} already exists`, 409);
+    } catch (checkErr) {
+      return respond.error(res, checkErr.message || 'Failed to check existing models', 500);
+    }
     // Construct Model instance to validate
     let modelObj;
     try {
@@ -206,6 +213,64 @@ router.post('/:id/run', async (req, res) => {
     return respond.success(res, { jobId: result.jobId, gpuNode: result.gpuNode, message: result.message || 'Job started' });
   } catch (error) {
     return respond.error(res, error.message || 'Failed to run model', 500);
+  }
+});
+
+/**
+ * PUT /api/models/:id - update an existing model (partial updates merged)
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+
+    // Find existing
+    const existing = await modelStore.findModel(id);
+    if (!existing) return respond.error(res, `Model ${id} not found`, 404);
+
+    // Prevent id change
+    if (body.id && String(body.id) !== String(id)) {
+      return respond.error(res, 'Cannot change model id', 400);
+    }
+
+    // Merge fields: allow partial updates for huggingFaceName, settings, running, state
+    const newHf = body.huggingFaceName || existing.huggingFaceName;
+
+    // Merge settings deeply (shallow merge of top-level keys)
+    const mergedSettings = Object.assign({}, existing.settings || {}, (body.settings || {}));
+
+    // Merge running similarly; if state becomes 'Stopped' ensure running cleared
+    let mergedRunning;
+    if (body.running === undefined) {
+      mergedRunning = Object.assign({}, existing.running || Model.defaultRunning());
+    } else if (body.running === null) {
+      mergedRunning = Model.defaultRunning();
+    } else {
+      mergedRunning = Object.assign({}, existing.running || Model.defaultRunning(), body.running);
+    }
+
+    const newState = (body.state !== undefined) ? body.state : existing.state;
+    if (String(newState).toLowerCase() === 'stopped') {
+      mergedRunning = Model.defaultRunning();
+    }
+
+    // Validate by constructing a Model instance
+    let validated;
+    try {
+      validated = new Model({ id, huggingFaceName: newHf, settings: mergedSettings, running: mergedRunning, state: newState });
+    } catch (err) {
+      return respond.error(res, err.message || 'Invalid model update', 400);
+    }
+
+    // Persist
+    try {
+      const doc = await modelStore.addModel(id, validated.toJSON());
+      return respond.success(res, { model: doc });
+    } catch (err) {
+      return respond.error(res, err.message || 'Failed to persist model update', 500);
+    }
+  } catch (error) {
+    return respond.error(res, error.message || 'Failed to update model', 500);
   }
 });
 
