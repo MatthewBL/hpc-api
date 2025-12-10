@@ -69,6 +69,7 @@ class Model {
       cpus: null,
       node: null,
       period: null,
+      job_id: null,
       startTime: null,
       time: null
     };
@@ -103,7 +104,7 @@ class Model {
       throw new TypeError('running must be an object');
     }
 
-    const { port, gpus, cpus, node, period } = running;
+    const { port, gpus, cpus, node, period, job_id } = running;
 
     if (port !== null && (!Number.isInteger(port) || port <= 0)) {
       throw new TypeError('running.port must be null or a positive integer');
@@ -119,6 +120,9 @@ class Model {
     }
     if (period !== null && (typeof period !== 'string' || period.length === 0)) {
       throw new TypeError('running.period must be null or a non-empty string');
+    }
+    if (job_id !== null && (typeof job_id !== 'string' || job_id.length === 0)) {
+      throw new TypeError('running.job_id must be null or a non-empty string');
     }
     // Optional time fields
     const { startTime, time } = running;

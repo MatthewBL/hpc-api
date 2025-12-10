@@ -5,6 +5,7 @@ const respond = require('../utils/response');
 const Model = require('../models/model');
 const modelStore = require('../services/modelStore');
 const jobStore = require('../services/jobStore');
+const jobHistoryStore = require('../services/jobHistoryStore');
 const slurmService = require('../services/slurmService');
 
 const router = express.Router();
@@ -478,6 +479,25 @@ router.post('/:id/run', async (req, res) => {
         console.warn('Failed to persist job after start:', err.message || err);
       }
 
+      // Record the job in job history with status 'ongoing'
+      try {
+        await jobHistoryStore.addJob(result.jobId, {
+          modelId: modelDoc.huggingFaceName,
+          status: 'ongoing',
+          config: {
+            port: options.port,
+            node: options.node,
+            gpus: options.gpus,
+            cpus: options.cpus,
+            period: options.period
+          },
+          startTime: jobInfo.startTime
+        });
+      } catch (err) {
+        // Non-fatal: log and continue
+        console.warn('Failed to record job in history:', err.message || err);
+      }
+
       // attach startTime to running values we will persist for the model
       // (use jobInfo.startTime whether or not persisting the job succeeded)
       try {
@@ -487,6 +507,7 @@ router.post('/:id/run', async (req, res) => {
           cpus: options.cpus,
           node: options.node,
           period: options.period,
+          job_id: result.jobId,
           startTime: jobInfo.startTime,
           time: '00:00:00'
         };
@@ -506,6 +527,7 @@ router.post('/:id/run', async (req, res) => {
           cpus: options.cpus,
           node: options.node,
           period: options.period,
+          job_id: null,
           startTime: nowIso,
           time: '00:00:00'
         };
@@ -660,6 +682,14 @@ router.post('/:id/stop', async (req, res) => {
     if (!result || !result.success) {
       if (result && result.code === 404) return respond.error(res, 'Job not found', 404, result);
       return respond.error(res, result && result.error ? result.error : 'Failed to cancel job', 500, result || {});
+    }
+
+    // Update job history status to 'ended'
+    try {
+      await jobHistoryStore.updateJobStatus(job._id, 'ended');
+    } catch (err) {
+      // Non-fatal: log and continue
+      console.warn('Failed to update job history status:', err.message || err);
     }
 
     // Update stored model state to Stopped and clear running values
