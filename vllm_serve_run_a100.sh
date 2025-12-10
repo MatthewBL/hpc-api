@@ -9,9 +9,10 @@ SUBMIT_OUT=$(sbatch $slurmFile $1 $2) || SUBMIT_OUT=""
 JOB_ID=$(echo "$SUBMIT_OUT" | awk '{print $4}')
 GPU_NODE=$(squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1 || true)
 if [ -n "$JOB_ID" ]; then
+	START_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 	curl -sS -X POST http://localhost:3000/api/jobs/register \
 		-H "Content-Type: application/json" \
-		-d "{\"jobId\": \"$JOB_ID\", \"port\": $2, \"model\": \"$1\", \"node\": \"$GPU_NODE\", \"gpuType\": \"a100\", \"startTime\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" }" || true
+		-d '{"jobId": "'"$JOB_ID"'", "port": '"$2"', "model": "'"$1"'", "node": "'"$GPU_NODE"'", "gpuType": "a100", "startTime": "'"$START_TIME"'"}' || true
 fi
 mv $slurmFile archive
 

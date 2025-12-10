@@ -19,10 +19,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Import routes correctly
 const healthRoutes = require('./routes/health');
 const modelRoutes = require('./routes/models');
+const jobRoutes = require('./routes/jobs');
 
 // Use routes - make sure these are actually router objects
 app.use('/health', healthRoutes);
 app.use('/api/models', modelRoutes);
+app.use('/api/jobs', jobRoutes);
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
