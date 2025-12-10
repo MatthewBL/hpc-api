@@ -24,6 +24,8 @@ if [ -n "$JOB_ID" ]; then
   curl -sS -X POST http://localhost:3000/api/jobs/register \
     -H "Content-Type: application/json" \
     -d '{"jobId": "'"$JOB_ID"'", "port": '"$2"', "model": "'"$1"'", "node": "'"$GPU_NODE"'", "gpuType": "a30", "startTime": "'"$START_TIME"'"}' || true
+  # Output the job ID so that the calling process can capture it
+  echo "JOB_ID=$JOB_ID"
 fi
 
 mkdir -p archive

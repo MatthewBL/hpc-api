@@ -15,29 +15,19 @@ class SlurmService {
     } = options;
 
     try {
-      // Call sbatch directly to get the job ID from the output
-      // instead of querying squeue (which has race condition issues with multiple jobs)
+      // Call make which runs the shell script
       const sbatchCommand = `make start_${gpuType} MODEL=${model} PORT=${port} GPUS=${gpus} CPUS=${cpus} PERIOD=${period} NODE=${node}`;
       const { stdout, stderr } = await execAsync(sbatchCommand);
       
       let jobId = null;
       let gpuNode = null;
       
-      // Parse stdout for the job ID from sbatch output
-      // sbatch typically outputs: "Submitted batch job 12345"
-      const sbatchMatch = stdout.match(/Submitted batch job (\d+)/);
-      if (sbatchMatch) {
-        jobId = sbatchMatch[1];
+      // Parse stdout for the job ID from shell script output (format: "JOB_ID=12345")
+      const jobIdMatch = stdout.match(/JOB_ID=(\d+)/);
+      if (jobIdMatch) {
+        jobId = jobIdMatch[1];
       }
       
-      // If we couldn't extract job ID from sbatch output, try stderr as well
-      if (!jobId && stderr) {
-        const stderrMatch = stderr.match(/Submitted batch job (\d+)/);
-        if (stderrMatch) {
-          jobId = stderrMatch[1];
-        }
-      }
-
       // Try to get the node name if we have a job ID
       if (jobId) {
         try {
@@ -49,10 +39,10 @@ class SlurmService {
           gpuNode = node; // Fallback to requested node
         }
       } else {
-        // If we still don't have a job ID, this is a problem
-        console.warn('Could not extract job ID from sbatch output');
+        // If we still don't have a job ID, log but continue (job was still submitted)
+        console.warn('Could not extract job ID from shell script output');
         console.warn('stdout:', stdout);
-        console.warn('stderr:', stderr);
+        if (stderr) console.warn('stderr:', stderr);
         gpuNode = node;
       }
       
