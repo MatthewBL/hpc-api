@@ -302,6 +302,11 @@ router.get('/:id/state', async (req, res) => {
  *               value:
  *                 id: "deepseek_qwen_7B"
  *                 huggingFaceName: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+ *             createdModelExtraParams:
+ *               summary: Example body with extra parameters to create a model
+ *               value:
+ *                 id: "deepseek_qwen_7B"
+ *                 huggingFaceName: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
  *                 settings:
  *                   port: 9000
  *                   gpus: 4
