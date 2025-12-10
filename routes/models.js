@@ -388,6 +388,9 @@ router.post('/', async (req, res) => {
  *                 type: string
  *           examples:
  *             runModel:
+ *               summary: Example body to run a model
+ *               value:
+ *             runModelCustomParameters:
  *               summary: Example body to run a model with custom parameters
  *               value:
  *                 port: 9000
@@ -397,7 +400,7 @@ router.post('/', async (req, res) => {
  *                 node: "gpu04"
  *     responses:
  *       '200':
- *         description: Job started (or registration accepted)
+ *         description: Job started
  *       '400':
  *         description: Bad request
  *       '409':
