@@ -68,7 +68,9 @@ class Model {
       gpus: null,
       cpus: null,
       node: null,
-      period: null
+      period: null,
+      startTime: null,
+      time: null
     };
   }
 
@@ -117,6 +119,14 @@ class Model {
     }
     if (period !== null && (typeof period !== 'string' || period.length === 0)) {
       throw new TypeError('running.period must be null or a non-empty string');
+    }
+    // Optional time fields
+    const { startTime, time } = running;
+    if (startTime !== null && (typeof startTime !== 'string' || startTime.length === 0)) {
+      throw new TypeError('running.startTime must be null or a non-empty ISO string');
+    }
+    if (time !== null && (typeof time !== 'string' || time.length === 0)) {
+      throw new TypeError('running.time must be null or a non-empty string');
     }
   }
 

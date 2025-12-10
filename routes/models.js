@@ -15,6 +15,27 @@ async function _findJobForModel(huggingFaceName) {
   return jobs.find(j => String(j.model) === String(huggingFaceName)) || null;
 }
 
+function _formatElapsed(startIso) {
+  if (!startIso) return null;
+  try {
+    const start = new Date(startIso);
+    if (Number.isNaN(start.getTime())) return null;
+    const now = new Date();
+    let diff = Math.floor((now - start) / 1000); // seconds
+    const hours = Math.floor(diff / 3600);
+    diff %= 3600;
+    const minutes = Math.floor(diff / 60);
+    const seconds = diff % 60;
+    // Pad to HH:MM:SS (hours may exceed 24)
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  } catch (err) {
+    return null;
+  }
+}
+
 function _stateFromJob(job) {
   if (!job) return 'Stopped';
   // Check the slurm log for startup marker
@@ -112,9 +133,14 @@ router.get('/', async (req, res) => {
         const job = await _findJobForModel(doc.huggingFaceName);
         const state = _stateFromJob(job);
         // Ensure running field exists on older documents
-        const running = (doc.running && typeof doc.running === 'object') ? doc.running : Model.defaultRunning();
-        // If no job, running must be nulls
-        const runningNormalized = job ? running : Model.defaultRunning();
+        const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
+        // If a job exists, prefer job.startTime if available and compute elapsed time
+        let runningNormalized = Model.defaultRunning();
+        if (job) {
+          runningNormalized = Object.assign({}, running);
+          if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
+          runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
+        }
         return Object.assign({}, doc, { state, running: runningNormalized });
       } catch (innerErr) {
         return Object.assign({}, doc, { state: 'Unknown', error: innerErr.message, running: Model.defaultRunning() });
@@ -198,8 +224,8 @@ router.get('/:id', async (req, res) => {
 
     const job = await _findJobForModel(doc.huggingFaceName);
     const state = _stateFromJob(job);
-    const running = (doc.running && typeof doc.running === 'object') ? doc.running : Model.defaultRunning();
-    const runningNormalized = job ? running : Model.defaultRunning();
+    const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
+    const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
 
     return respond.success(res, { model: Object.assign({}, doc, { state, running: runningNormalized }) });
   } catch (error) {
@@ -259,8 +285,8 @@ router.get('/:id/state', async (req, res) => {
 
     const job = await _findJobForModel(doc.huggingFaceName);
     const state = _stateFromJob(job);
-    const running = (doc.running && typeof doc.running === 'object') ? doc.running : Model.defaultRunning();
-    const runningNormalized = job ? running : Model.defaultRunning();
+    const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
+    const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
     return respond.success(res, { state, running: runningNormalized });
   } catch (error) {
     return respond.error(res, error.message || 'Failed to get model state', 500);
@@ -437,34 +463,56 @@ router.post('/:id/run', async (req, res) => {
     }
 
     // If jobId was discovered, persist registration (upsert) so we have mapping
-    try {
-      if (result.jobId) {
-        const jobInfo = {
-          port: options.port,
-          model: modelDoc.huggingFaceName,
-          node: result.gpuNode || options.node || '',
-          gpuType,
-          startTime: new Date().toISOString()
-        };
+    if (result.jobId) {
+      const jobInfo = {
+        port: options.port,
+        model: modelDoc.huggingFaceName,
+        node: result.gpuNode || options.node || '',
+        gpuType,
+        startTime: new Date().toISOString()
+      };
+      try {
         await jobStore.addJob(result.jobId, jobInfo);
+      } catch (err) {
+        // Non-fatal: log and continue
+        console.warn('Failed to persist job after start:', err.message || err);
       }
-    } catch (err) {
-      // Non-fatal: log and continue
-      console.warn('Failed to persist job after start:', err.message || err);
+
+      // attach startTime to running values we will persist for the model
+      // (use jobInfo.startTime whether or not persisting the job succeeded)
+      try {
+        const runningValues = {
+          port: options.port,
+          gpus: options.gpus,
+          cpus: options.cpus,
+          node: options.node,
+          period: options.period,
+          startTime: jobInfo.startTime,
+          time: '00:00:00'
+        };
+        await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Setting up', running: runningValues }));
+      } catch (inner) {
+        console.warn('Failed to persist model running values after start:', inner.message || inner);
+      }
     }
 
-    // Update stored model state to Setting up and set running values
-    try {
-      const runningValues = {
-        port: options.port,
-        gpus: options.gpus,
-        cpus: options.cpus,
-        node: options.node,
-        period: options.period
-      };
-      await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Setting up', running: runningValues }));
-    } catch (err) {
-      // Non-fatal
+    // If jobId wasn't available we still persist running/startTime with now
+    if (!result.jobId) {
+      try {
+        const nowIso = new Date().toISOString();
+        const runningValues = {
+          port: options.port,
+          gpus: options.gpus,
+          cpus: options.cpus,
+          node: options.node,
+          period: options.period,
+          startTime: nowIso,
+          time: '00:00:00'
+        };
+        await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Setting up', running: runningValues }));
+      } catch (err) {
+        // Non-fatal
+      }
     }
 
     return respond.success(res, { jobId: result.jobId, gpuNode: result.gpuNode, message: result.message || 'Job started' });
