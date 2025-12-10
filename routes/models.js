@@ -44,6 +44,41 @@ function _gpuTypeFromNode(node) {
 
 /**
  * GET /api/models - list all models with derived state
+ *
+ * @openapi
+ * /api/models:
+ *   get:
+ *     summary: List stored models
+ *     tags:
+ *       - Models
+ *     description: Returns all models persisted in the service with a derived `state` and `running` values.
+ *     responses:
+ *       '200':
+ *         description: A list of models
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 models:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       huggingFaceName:
+ *                         type: string
+ *                       settings:
+ *                         type: object
+ *                       running:
+ *                         type: object
+ *                       state:
+ *                         type: string
  */
 router.get('/', async (req, res) => {
   try {
@@ -71,6 +106,44 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/models/:id - get model info including derived state
+ *
+ * @openapi
+ * /api/models/{id}:
+ *   get:
+ *     summary: Retrieve a model by id
+ *     tags:
+ *       - Models
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Model details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 model:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     huggingFaceName:
+ *                       type: string
+ *                     settings:
+ *                       type: object
+ *                     running:
+ *                       type: object
+ *                     state:
+ *                       type: string
+ *       '404':
+ *         description: Model not found
  */
 router.get('/:id', async (req, res) => {
   try {
@@ -91,6 +164,35 @@ router.get('/:id', async (req, res) => {
 
 /**
  * GET /api/models/:id/state - get only the state (Stopped/Setting up/Running)
+ *
+ * @openapi
+ * /api/models/{id}/state:
+ *   get:
+ *     summary: Retrieve only the state of a model
+ *     tags:
+ *       - Models
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Model state
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 state:
+ *                   type: string
+ *                 running:
+ *                   type: object
+ *       '404':
+ *         description: Model not found
  */
 router.get('/:id/state', async (req, res) => {
   try {
@@ -110,6 +212,40 @@ router.get('/:id/state', async (req, res) => {
 
 /**
  * POST /api/models - create a new model
+ *
+ * @openapi
+ * /api/models:
+ *   post:
+ *     summary: Create a new model record
+ *     tags:
+ *       - Models
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - huggingFaceName
+ *             properties:
+ *               id:
+ *                 type: string
+ *               huggingFaceName:
+ *                 type: string
+ *               settings:
+ *                 type: object
+ *               running:
+ *                 type: object
+ *               state:
+ *                 type: string
+ *     responses:
+ *       '201':
+ *         description: Model created
+ *       '400':
+ *         description: Invalid payload
+ *       '409':
+ *         description: Model with id already exists
  */
 router.post('/', async (req, res) => {
   try {
@@ -145,6 +281,44 @@ router.post('/', async (req, res) => {
 /**
  * POST /api/models/:id/run - start a job for the model
  * Body may include: gpuType (a30/a40/a100), port, gpus, cpus, node, period
+ *
+ * @openapi
+ * /api/models/{id}/run:
+ *   post:
+ *     summary: Start a Slurm job for the specified model
+ *     tags:
+ *       - Models
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               port:
+ *                 type: integer
+ *               gpus:
+ *                 type: integer
+ *               cpus:
+ *                 type: integer
+ *               node:
+ *                 type: string
+ *                 description: Node to request (node determines GPU type)
+ *               period:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Job started (or registration accepted)
+ *       '400':
+ *         description: Bad request
+ *       '409':
+ *         description: Model already has a running job
  */
 router.post('/:id/run', async (req, res) => {
   try {
@@ -218,6 +392,41 @@ router.post('/:id/run', async (req, res) => {
 
 /**
  * PUT /api/models/:id - update an existing model (partial updates merged)
+ *
+ * @openapi
+ * /api/models/{id}:
+ *   put:
+ *     summary: Update an existing model (partial update)
+ *     tags:
+ *       - Models
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               huggingFaceName:
+ *                 type: string
+ *               settings:
+ *                 type: object
+ *               running:
+ *                 type: object
+ *               state:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Model updated
+ *       '400':
+ *         description: Invalid update
+ *       '404':
+ *         description: Model not found
  */
 router.put('/:id', async (req, res) => {
   try {
@@ -276,6 +485,24 @@ router.put('/:id', async (req, res) => {
 
 /**
  * POST /api/models/:id/stop - stop the job for the specified model
+ * 
+ *@openapi
+ * /api/models/{id}/stop:
+ *   post:
+ *     summary: Stop the job running the model
+ *     tags:
+ *       - Models
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Job stopped
+ *       '404':
+ *         description: Job or model not found
  */
 router.post('/:id/stop', async (req, res) => {
   try {
@@ -307,6 +534,26 @@ router.post('/:id/stop', async (req, res) => {
 
 /**
  * DELETE /api/models/:id - remove a model (only allowed if no running job)
+ *
+ * @openapi
+ * /api/models/{id}:
+ *   delete:
+ *     summary: Remove a stored model
+ *     tags:
+ *       - Models
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Model removed
+ *       '404':
+ *         description: Model not found
+ *       '409':
+ *         description: Model has active job
  */
 router.delete('/:id', async (req, res) => {
   try {
