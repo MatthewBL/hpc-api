@@ -389,7 +389,6 @@ router.post('/', async (req, res) => {
  *           examples:
  *             runModel:
  *               summary: Example body to run a model
- *               value:
  *             runModelCustomParameters:
  *               summary: Example body to run a model with custom parameters
  *               value:
