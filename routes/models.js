@@ -243,7 +243,7 @@ router.get('/:id', async (req, res) => {
  *           success: true
  *           state: "Running"
  *           running:
- *              port: 9000
+ *            - port: 9000
  *              gpus: 4
  *              cpus: 4
  *              node: "gpu04"
