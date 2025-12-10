@@ -13,12 +13,12 @@ app.use(morgan('combined'));
 app.use(express.json());
 
 // Import routes correctly
-const jobRoutes = require('./routes/jobs');
 const healthRoutes = require('./routes/health');
+const modelRoutes = require('./routes/models');
 
 // Use routes - make sure these are actually router objects
-app.use('/api/jobs', jobRoutes);
 app.use('/health', healthRoutes);
+app.use('/api/models', modelRoutes);
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
