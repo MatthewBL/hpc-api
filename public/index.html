@@ -448,9 +448,22 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Node</label>
-                    <input type="text" class="form-input" id="node" value="gpu08" 
-                           placeholder="e.g., gpu08" />
+                    <label class="form-label">GPU Type (default)</label>
+                    <select class="form-input" id="gpuType">
+                        <option value="a30">A30</option>
+                        <option value="a40">A40</option>
+                        <option value="a100" selected>A100</option>
+                    </select>
+                    <div class="small-text">Choose the GPU family; scheduler picks the node.</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Run on a specific node?</label>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="checkbox" id="useSpecificNode" />
+                        <input type="text" class="form-input" id="node" placeholder="e.g., gpu08" disabled />
+                    </div>
+                    <div class="small-text">Optional: override to force a node.</div>
                 </div>
 
                 <div class="form-group">
@@ -490,8 +503,20 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Node</label>
-                    <input type="text" class="form-input" id="runNode" />
+                    <label class="form-label">GPU Type</label>
+                    <select class="form-input" id="runGpuType">
+                        <option value="a30">A30</option>
+                        <option value="a40">A40</option>
+                        <option value="a100">A100</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Run on a specific node?</label>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="checkbox" id="runUseSpecificNode" />
+                        <input type="text" class="form-input" id="runNode" placeholder="e.g., gpu08" disabled />
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -536,6 +561,24 @@
                     this.apiBase = e.target.value;
                     this.loadModels();
                 });
+
+                // Toggle node override inputs
+                const useNode = document.getElementById('useSpecificNode');
+                const nodeInput = document.getElementById('node');
+                if (useNode && nodeInput) {
+                    useNode.addEventListener('change', () => {
+                        nodeInput.disabled = !useNode.checked;
+                        if (!useNode.checked) nodeInput.value = '';
+                    });
+                }
+                const runUseNode = document.getElementById('runUseSpecificNode');
+                const runNodeInput = document.getElementById('runNode');
+                if (runUseNode && runNodeInput) {
+                    runUseNode.addEventListener('change', () => {
+                        runNodeInput.disabled = !runUseNode.checked;
+                        if (!runUseNode.checked) runNodeInput.value = '';
+                    });
+                }
             },
 
             async loadModels() {
@@ -575,13 +618,14 @@
                 const running = model.running || {};
 
                 let runningInfo = '';
-                if (!isStopped && (running.port || running.gpus || running.node)) {
+                if (!isStopped && (running.port || running.gpus || running.node || running.gpuType)) {
                     runningInfo = `
                         <div class="running-config">
                             <div class="running-config-title">Current Configuration</div>
                             ${running.port ? `<div class="info-row"><span class="info-label">Port:</span> <span class="info-value">${running.port}</span></div>` : ''}
                             ${running.gpus ? `<div class="info-row"><span class="info-label">GPUs:</span> <span class="info-value">${running.gpus}</span></div>` : ''}
                             ${running.cpus ? `<div class="info-row"><span class="info-label">CPUs:</span> <span class="info-value">${running.cpus}</span></div>` : ''}
+                            ${running.gpuType ? `<div class=\"info-row\"><span class=\"info-label\">GPU Type:</span> <span class=\"info-value\">${running.gpuType.toUpperCase()}</span></div>` : ''}
                             ${running.node ? `<div class="info-row"><span class="info-label">Node:</span> <span class="info-value">${running.node}</span></div>` : ''}
                             ${running.period ? `<div class="info-row"><span class="info-label">Period:</span> <span class="info-value">${running.period}</span></div>` : ''}
                             ${running.time ? `<div class="info-row"><span class="info-label">Running Time:</span> <span class="info-value">${running.time}</span></div>` : ''}
@@ -610,8 +654,12 @@
                                 <span class="info-value">${model.settings?.gpus || 'N/A'}</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">Default Node:</span>
-                                <span class="info-value">${model.settings?.node || 'N/A'}</span>
+                                <span class="info-label">Default GPU Type:</span>
+                                <span class="info-value">${(model.settings?.gpuType || 'a100').toUpperCase()}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Default Node (optional):</span>
+                                <span class="info-value">${model.settings?.node || '—'}</span>
                             </div>
                         </div>
                         ${runningInfo}
@@ -635,6 +683,11 @@
                 document.getElementById('modalTitle').textContent = 'Create New Model';
                 document.getElementById('modelForm').reset();
                 document.getElementById('modelId').disabled = false;
+                // Defaults
+                document.getElementById('gpuType').value = 'a100';
+                document.getElementById('useSpecificNode').checked = false;
+                document.getElementById('node').value = '';
+                document.getElementById('node').disabled = true;
                 document.getElementById('modelModal').classList.add('active');
             },
 
@@ -655,7 +708,11 @@
                     document.getElementById('port').value = model.settings?.port || 9000;
                     document.getElementById('gpus').value = model.settings?.gpus || 4;
                     document.getElementById('cpus').value = model.settings?.cpus || 8;
-                    document.getElementById('node').value = model.settings?.node || 'gpu08';
+                    document.getElementById('gpuType').value = (model.settings?.gpuType || 'a100');
+                    const hasNode = !!(model.settings?.node);
+                    document.getElementById('useSpecificNode').checked = hasNode;
+                    document.getElementById('node').value = model.settings?.node || '';
+                    document.getElementById('node').disabled = !hasNode;
                     document.getElementById('period').value = model.settings?.period || '24:00:00';
 
                     document.getElementById('modelModal').classList.add('active');
@@ -679,7 +736,8 @@
                         port: parseInt(document.getElementById('port').value),
                         gpus: parseInt(document.getElementById('gpus').value),
                         cpus: parseInt(document.getElementById('cpus').value),
-                        node: document.getElementById('node').value,
+                        gpuType: document.getElementById('gpuType').value,
+                        node: document.getElementById('useSpecificNode').checked ? document.getElementById('node').value : '',
                         period: document.getElementById('period').value
                     }
                 };
@@ -731,7 +789,11 @@
                     document.getElementById('runPort').value = model.settings?.port || 9000;
                     document.getElementById('runGpus').value = model.settings?.gpus || 4;
                     document.getElementById('runCpus').value = model.settings?.cpus || 8;
-                    document.getElementById('runNode').value = model.settings?.node || 'gpu08';
+                    document.getElementById('runGpuType').value = (model.settings?.gpuType || 'a100');
+                    const hasNode = !!(model.settings?.node);
+                    document.getElementById('runUseSpecificNode').checked = hasNode;
+                    document.getElementById('runNode').value = model.settings?.node || '';
+                    document.getElementById('runNode').disabled = !hasNode;
                     document.getElementById('runPeriod').value = model.settings?.period || '24:00:00';
 
                     document.getElementById('runModal').classList.add('active');
@@ -752,7 +814,8 @@
                     port: parseInt(document.getElementById('runPort').value),
                     gpus: parseInt(document.getElementById('runGpus').value),
                     cpus: parseInt(document.getElementById('runCpus').value),
-                    node: document.getElementById('runNode').value,
+                    gpuType: document.getElementById('runGpuType').value,
+                    node: document.getElementById('runUseSpecificNode').checked ? document.getElementById('runNode').value : '',
                     period: document.getElementById('runPeriod').value
                 };
 
@@ -845,6 +908,7 @@
                                         <th>Job ID</th>
                                         <th>Model</th>
                                         <th>Status</th>
+                                        <th>GPU Type</th>
                                         <th>Node</th>
                                         <th>Port</th>
                                         <th>Start Time</th>
@@ -856,7 +920,8 @@
                                             <td><code>${job.jobId || job._id}</code></td>
                                             <td>${job.modelId || 'N/A'}</td>
                                             <td><span class="model-status status-${job.status === 'ongoing' ? 'running' : 'stopped'}">${job.status}</span></td>
-                                            <td>${job.config?.node || 'N/A'}</td>
+                                            <td>${(job.config?.gpuType || 'a100').toUpperCase()}</td>
+                                            <td>${job.config?.node || '—'}</td>
                                             <td>${job.config?.port || 'N/A'}</td>
                                             <td>${job.startTime ? new Date(job.startTime).toLocaleString() : 'N/A'}</td>
                                         </tr>
@@ -894,6 +959,7 @@
                                     <tr>
                                         <th>Job ID</th>
                                         <th>Status</th>
+                                        <th>GPU Type</th>
                                         <th>Node</th>
                                         <th>GPUs/CPUs</th>
                                         <th>Port</th>
@@ -905,7 +971,8 @@
                                         <tr>
                                             <td><code>${job.jobId || job._id}</code></td>
                                             <td><span class="model-status status-${job.status === 'ongoing' ? 'running' : 'stopped'}">${job.status}</span></td>
-                                            <td>${job.config?.node || 'N/A'}</td>
+                                            <td>${(job.config?.gpuType || 'a100').toUpperCase()}</td>
+                                            <td>${job.config?.node || '—'}</td>
                                             <td>${job.config?.gpus || '?'}/${job.config?.cpus || '?'}</td>
                                             <td>${job.config?.port || 'N/A'}</td>
                                             <td>${job.startTime ? new Date(job.startTime).toLocaleString() : 'N/A'}</td>

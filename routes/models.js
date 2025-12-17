@@ -65,6 +65,12 @@ function _gpuTypeFromNode(node) {
   return 'a100';
 }
 
+function _normalizeGpuType(val, fallback = 'a100') {
+  if (!val) return fallback;
+  const v = String(val).toLowerCase();
+  return ['a30','a40','a100'].includes(v) ? v : fallback;
+}
+
 /**
  * GET /api/models - list all models with derived state
  *
@@ -447,15 +453,15 @@ router.post('/:id/run', async (req, res) => {
     const baseSettings = Model.defaultSettings();
     const merged = Object.assign({}, baseSettings, modelDoc.settings || {}, body);
 
-    // Determine gpuType from the requested/merged node (defaults to a100)
-    const gpuType = _gpuTypeFromNode(merged.node);
+    // Determine gpuType preference: explicit body.gpuType > model.settings.gpuType > derived from node > 'a100'
+    const gpuType = _normalizeGpuType(body.gpuType, _normalizeGpuType(modelDoc.settings?.gpuType, _gpuTypeFromNode(merged.node)));
 
     const options = {
       model: modelDoc.huggingFaceName,
       port: Number(merged.port),
       gpus: Number(merged.gpus),
       cpus: Number(merged.cpus),
-      node: merged.node,
+      node: merged.node || '',
       period: merged.period
     };
 
@@ -490,7 +496,8 @@ router.post('/:id/run', async (req, res) => {
             node: options.node,
             gpus: options.gpus,
             cpus: options.cpus,
-            period: options.period
+            period: options.period,
+            gpuType
           },
           startTime: jobInfo.startTime
         });
@@ -508,6 +515,7 @@ router.post('/:id/run', async (req, res) => {
           cpus: options.cpus,
           node: options.node,
           period: options.period,
+          gpuType,
           job_id: result.jobId,
           startTime: jobInfo.startTime,
           time: '00:00:00'
@@ -528,6 +536,7 @@ router.post('/:id/run', async (req, res) => {
           cpus: options.cpus,
           node: options.node,
           period: options.period,
+          gpuType,
           job_id: null,
           startTime: nowIso,
           time: '00:00:00'

@@ -23,15 +23,17 @@ module.exports = {
                       port: 9000,
                       gpus: 4,
                       cpus: 8,
-                      node: 'gpu08',
-                      period: '24:00:00'
+                      node: '',
+                      period: '24:00:00',
+                      gpuType: 'a100'
                     },
                     running: {
                       port: null,
                       gpus: null,
                       cpus: null,
                       node: null,
-                      period: null
+                      period: null,
+                      gpuType: null
                     },
                     state: 'Stopped',
                     _id: 'deepseek_qwen_7B'
@@ -88,15 +90,17 @@ module.exports = {
                     port: 9000,
                     gpus: 4,
                     cpus: 4,
-                    node: 'gpu02',
-                    period: '01:00:00'
+                    node: '',
+                    period: '01:00:00',
+                    gpuType: 'a100'
                   },
                   running: {
                     port: null,
                     gpus: null,
                     cpus: null,
                     node: null,
-                    period: null
+                    period: null,
+                    gpuType: null
                   },
                   state: 'Stopped',
                   _id: 'deepseek_qwen_7B'
@@ -125,7 +129,8 @@ module.exports = {
                 gpus: 4,
                 cpus: 8,
                 period: '24:00:00',
-                node: 'gpu08'
+                node: '',
+                gpuType: 'a100'
               }
             }
           }
@@ -158,8 +163,9 @@ module.exports = {
                   port: 9000,
                   gpus: 4,
                   cpus: 4,
-                  node: 'gpu04',
-                  period: '01:00:00'
+                  node: null,
+                  period: '01:00:00',
+                  gpuType: 'a40'
                 }
               }
             }
@@ -185,7 +191,8 @@ module.exports = {
               gpus: 4,
               cpus: 4,
               period: '01:00:00',
-              node: 'gpu04'
+              gpuType: 'a40',
+              node: ''
             }
           }
         }

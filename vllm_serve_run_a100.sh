@@ -1,7 +1,11 @@
 #!/bin/bash
 slurmFile=$(mktemp temp_XXXXXX.slurm)
 echo "#!/bin/bash" >> $slurmFile
-echo "#SBATCH --cpus-per-gpu=$4 --gpus=a100:$3 -t $5 --nodelist=$6" >> $slurmFile
+SBATCH_LINE="#SBATCH --cpus-per-gpu=$4 --gpus=a100:$3 -t $5"
+if [ -n "$6" ]; then
+	SBATCH_LINE="$SBATCH_LINE --nodelist=$6"
+fi
+echo "$SBATCH_LINE" >> $slurmFile
 cat vllm_serve.slurm_template >> $slurmFile
 echo "Temp file: $slurmFile"
 SUBMIT_OUT=$(sbatch $slurmFile $1 $2) || SUBMIT_OUT=""

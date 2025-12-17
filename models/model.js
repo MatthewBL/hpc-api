@@ -4,7 +4,7 @@
  * Properties:
  * - id: string
  * - huggingFaceName: string
- * - settings: { port, gpus, cpus, node, period }
+ * - settings: { port, gpus, cpus, node, period, gpuType }
  * - state: string
  */
 
@@ -18,8 +18,9 @@ class Model {
    * @param {number} [opts.settings.port=9000]
    * @param {number} [opts.settings.gpus=4]
    * @param {number} [opts.settings.cpus=8]
-   * @param {string} [opts.settings.node='gpu08']
+  * @param {string} [opts.settings.node='']
    * @param {string} [opts.settings.period='24:00:00']
+  * @param {('a30'|'a40'|'a100')} [opts.settings.gpuType='a100']
    * @param {string} [opts.state='stopped']
    */
   constructor(opts = {}) {
@@ -57,8 +58,9 @@ class Model {
       port: 9000,
       gpus: 4,
       cpus: 8,
-      node: 'gpu08',
+      node: '',
       period: '24:00:00',
+      gpuType: 'a100'
     };
   }
 
@@ -69,6 +71,7 @@ class Model {
       cpus: null,
       node: null,
       period: null,
+      gpuType: null,
       job_id: null,
       startTime: null,
       time: null
@@ -80,7 +83,7 @@ class Model {
       throw new TypeError('settings must be an object');
     }
 
-    const { port, gpus, cpus, node, period } = settings;
+    const { port, gpus, cpus, node, period, gpuType } = settings;
 
     if (!Number.isInteger(port) || port <= 0) {
       throw new TypeError('settings.port must be a positive integer');
@@ -91,11 +94,17 @@ class Model {
     if (!Number.isInteger(cpus) || cpus < 0) {
       throw new TypeError('settings.cpus must be a non-negative integer');
     }
-    if (typeof node !== 'string' || node.length === 0) {
-      throw new TypeError('settings.node must be a non-empty string');
+    // Node is optional; allow empty string to let scheduler pick
+    if (typeof node !== 'string') {
+      throw new TypeError('settings.node must be a string');
     }
     if (typeof period !== 'string' || period.length === 0) {
       throw new TypeError('settings.period must be a non-empty string');
+    }
+    if (gpuType !== undefined && gpuType !== null) {
+      if (typeof gpuType !== 'string' || !['a30','a40','a100'].includes(gpuType)) {
+        throw new TypeError("settings.gpuType must be one of 'a30', 'a40', 'a100'");
+      }
     }
   }
 
@@ -104,7 +113,7 @@ class Model {
       throw new TypeError('running must be an object');
     }
 
-    const { port, gpus, cpus, node, period, job_id } = running;
+    const { port, gpus, cpus, node, period, job_id, gpuType } = running;
 
     if (port !== null && (!Number.isInteger(port) || port <= 0)) {
       throw new TypeError('running.port must be null or a positive integer');
@@ -115,14 +124,18 @@ class Model {
     if (cpus !== null && (!Number.isInteger(cpus) || cpus < 0)) {
       throw new TypeError('running.cpus must be null or a non-negative integer');
     }
-    if (node !== null && (typeof node !== 'string' || node.length === 0)) {
-      throw new TypeError('running.node must be null or a non-empty string');
+    // Node optional during runtime as well
+    if (node !== null && (typeof node !== 'string')) {
+      throw new TypeError('running.node must be null or a string');
     }
     if (period !== null && (typeof period !== 'string' || period.length === 0)) {
       throw new TypeError('running.period must be null or a non-empty string');
     }
     if (job_id !== null && (typeof job_id !== 'string' || job_id.length === 0)) {
       throw new TypeError('running.job_id must be null or a non-empty string');
+    }
+    if (gpuType !== null && (typeof gpuType !== 'string' || !['a30','a40','a100'].includes(gpuType))) {
+      throw new TypeError("running.gpuType must be null or one of 'a30', 'a40', 'a100'");
     }
     // Optional time fields
     const { startTime, time } = running;
