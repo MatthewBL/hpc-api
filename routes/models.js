@@ -899,4 +899,31 @@ router.delete('/history/all', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/models/hello-world
+ *
+ * Sends a "Hello world" request to a model deployed on a specific node (gpu01-08).
+ */
+router.get('/hello-world', async (req, res) => {
+  const node = req.query.node || 'gpu01'; // Default to gpu01 if no node is specified
+
+  if (!/^gpu0[1-8]$/.test(node)) {
+    return res.status(400).json({ error: 'Invalid node. Must be one of gpu01-08.' });
+  }
+
+  try {
+    // Simulate sending a "Hello world" request to the model
+    const response = {
+      message: 'Hello world',
+      node,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error sending Hello world request:', error);
+    res.status(500).json({ error: 'Failed to send Hello world request.' });
+  }
+});
+
 module.exports = router;
