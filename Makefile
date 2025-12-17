@@ -7,7 +7,22 @@ start_a30:
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2`; GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1`; \
 	curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
-	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a30\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; 
+	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a30\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
+	echo "Checking job status for 30 seconds for (Resources) state..."; \
+	for i in {1..30}; do \
+	  STATE=$$(squeue -j $$JOB_ID --noheader -o "%t %R" 2>/dev/null); \
+	  if [[ "$$STATE" == *"(Resources)"* ]]; then \
+	    if [ $$i -eq 30 ]; then \
+	      echo "ERROR: Job $$JOB_ID stuck in (Resources) state for 30 seconds. Canceling job..."; \
+	      scancel $$JOB_ID; \
+	      exit 1; \
+	    fi; \
+	    sleep 1; \
+	  else \
+	    echo "Job allocated: $$STATE"; \
+	    break; \
+	  fi; \
+	done
 	@echo "Check status with 'make check'"
 	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
 
@@ -17,7 +32,22 @@ start_a40:
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2`; GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1`; \
 	curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
-	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a40\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; 
+	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a40\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
+	echo "Checking job status for 30 seconds for (Resources) state..."; \
+	for i in {1..30}; do \
+	  STATE=$$(squeue -j $$JOB_ID --noheader -o "%t %R" 2>/dev/null); \
+	  if [[ "$$STATE" == *"(Resources)"* ]]; then \
+	    if [ $$i -eq 30 ]; then \
+	      echo "ERROR: Job $$JOB_ID stuck in (Resources) state for 30 seconds. Canceling job..."; \
+	      scancel $$JOB_ID; \
+	      exit 1; \
+	    fi; \
+	    sleep 1; \
+	  else \
+	    echo "Job allocated: $$STATE"; \
+	    break; \
+	  fi; \
+	done
 	@echo "Check status with 'make check'"
 	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
 
@@ -27,7 +57,22 @@ start_a100:
 	@JOB_ID=`squeue | grep temp_ | tr -s ' ' | cut -d' ' -f2`; GPU_NODE=`squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1`; \
 	curl -sS -X POST http://localhost:3000/api/jobs/register \
 	  -H "Content-Type: application/json" \
-	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a100\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; 
+	  -d "{\"jobId\": \"$$JOB_ID\", \"port\": $(PORT), \"model\": \"$(MODEL)\", \"node\": \"$$GPU_NODE\", \"gpuType\": \"a100\", \"startTime\": \"`date -u +%Y-%m-%dT%H:%M:%SZ`\" }" || true ; \
+	echo "Checking job status for 30 seconds for (Resources) state..."; \
+	for i in {1..30}; do \
+	  STATE=$$(squeue -j $$JOB_ID --noheader -o "%t %R" 2>/dev/null); \
+	  if [[ "$$STATE" == *"(Resources)"* ]]; then \
+	    if [ $$i -eq 30 ]; then \
+	      echo "ERROR: Job $$JOB_ID stuck in (Resources) state for 30 seconds. Canceling job..."; \
+	      scancel $$JOB_ID; \
+	      exit 1; \
+	    fi; \
+	    sleep 1; \
+	  else \
+	    echo "Job allocated: $$STATE"; \
+	    break; \
+	  fi; \
+	done
 	@echo "Check status with 'make check'"
 	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
 
