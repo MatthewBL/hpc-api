@@ -395,7 +395,10 @@
             <button class="btn btn-primary" onclick="app.showCreateModal()">➕ Add Model</button>
             <button class="btn btn-secondary" onclick="app.loadModels()">🔄 Refresh</button>
             <button class="btn btn-warning" onclick="app.showHistoryModal()">📊 View History</button>
+            <button class="btn btn-success" onclick="app.triggerHelloWorld()">🌍 Hello World</button>
         </div>
+
+        <div id="gpuAvailability" class="models-grid"></div>
 
         <div id="loadingState" class="loading">
             Loading models...
@@ -952,11 +955,72 @@
                 setTimeout(() => {
                     notification.remove();
                 }, 4000);
-            }
+            },
+
+            async triggerHelloWorld() {
+                try {
+                    const response = await fetch(`${this.apiBase}/hello-world`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ gpu: 'specific-gpu-id' })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to trigger Hello World');
+                    }
+
+                    this.showNotification('Hello World triggered successfully!', 'success');
+                } catch (error) {
+                    this.showNotification(error.message, 'error');
+                }
+            },
+
+            async loadGpuAvailability() {
+                const container = document.getElementById('gpuAvailability');
+                container.innerHTML = '<div class="loading">Loading GPU availability...</div>';
+
+                try {
+                    const response = await fetch(`${this.apiBase}/gpu-availability`);
+                    if (!response.ok) throw new Error('Failed to fetch GPU availability');
+
+                    const data = await response.json();
+                    const gpus = data.gpus || [];
+
+                    if (gpus.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: #718096;">No GPUs available</p>';
+                        return;
+                    }
+
+                    container.innerHTML = gpus.map(gpu => `
+                        <div class="model-card">
+                            <div class="model-header">
+                                <div class="model-id">GPU: ${gpu.id}</div>
+                                <div class="model-status status-${gpu.status.toLowerCase()}">${gpu.status}</div>
+                            </div>
+                            <div class="model-info">
+                                <div class="info-row">
+                                    <span class="info-label">Type:</span>
+                                    <span class="info-value">${gpu.type}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Memory:</span>
+                                    <span class="info-value">${gpu.memory} GB</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    container.innerHTML = `<p style="color: #f56565; text-align: center;">Error: ${error.message}</p>`;
+                }
+            },
         };
 
         // Initialize the app when DOM is ready
-        document.addEventListener('DOMContentLoaded', () => app.init());
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+            app.loadGpuAvailability();
+        });
     </script>
 </body>
 </html>
