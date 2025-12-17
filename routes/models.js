@@ -7,6 +7,7 @@ const modelStore = require('../services/modelStore');
 const jobStore = require('../services/jobStore');
 const jobHistoryStore = require('../services/jobHistoryStore');
 const slurmService = require('../services/slurmService');
+const { getGpuUsage } = require('../services/gpuAvailabilityService');
 
 const router = express.Router();
 
@@ -924,6 +925,24 @@ router.get('/hello-world', async (req, res) => {
     console.error('Error sending Hello world request:', error);
     res.status(500).json({ error: 'Failed to send Hello world request.' });
   }
+});
+
+/**
+ * Endpoint to get GPU availability.
+ */
+router.get('/gpu-availability', (req, res) => {
+    try {
+        const gpuUsage = getGpuUsage();
+        res.status(200).json({
+            success: true,
+            data: gpuUsage
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
 });
 
 module.exports = router;
