@@ -3,14 +3,14 @@ const path = require('path');
 
 // Regex to detect the timestamp line that starts each block, e.g.: "Thu Dec 18 04:09:01 2025"
 const TIMESTAMP_RE = /^[A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4}$/;
-const HEADER_RE = /^JOBID\s+USER\s+TRES_ALLOC\s+STATE$/;
+const HEADER_RE = /^JOBID\s+USER\s+TRES_ALLOC\s+STATE$/m;
 
 /**
  * Read only the tail of a large file and return the last log block lines.
  * A "block" begins with a timestamp line and includes the subsequent header
  * and job lines until the next timestamp or EOF.
  */
-function readLastBlockText(filePath, tailSizeBytes = 512 * 1024) {
+function readLastSnapshotChunks(filePath, tailSizeBytes = 512 * 1024) {
     const stats = fs.statSync(filePath);
     const bytesToRead = Math.min(stats.size, tailSizeBytes);
     const fd = fs.openSync(filePath, 'r');
@@ -18,27 +18,33 @@ function readLastBlockText(filePath, tailSizeBytes = 512 * 1024) {
         const buffer = Buffer.alloc(bytesToRead);
         fs.readSync(fd, buffer, 0, bytesToRead, stats.size - bytesToRead);
         const tail = buffer.toString('utf8');
+        const lines = tail.split(/\r?\n/);
 
-        // Find the position of the last timestamp in the tail
-        const re = new RegExp(TIMESTAMP_RE.source, 'gm');
-        let m, lastPos = -1;
-        while ((m = re.exec(tail)) !== null) {
-            lastPos = m.index;
+        // Find the last header line in the tail
+        let headerIdx = -1;
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (HEADER_RE.test(lines[i])) { headerIdx = i; break; }
         }
-        if (lastPos === -1) {
-            // Try to find header as a fallback and assume timestamp precedes it on original file
-            const hdr = new RegExp(HEADER_RE.source, 'm');
-            const hm = hdr.exec(tail);
-            if (!hm) return '';
-            // Take a conservative slice starting slightly before header occurrence
-            lastPos = Math.max(0, hm.index - 64);
+        if (headerIdx === -1) {
+            // If no header found, try last timestamp and start from next line
+            let tsIdx = -1;
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (TIMESTAMP_RE.test(lines[i].trim())) { tsIdx = i; break; }
+            }
+            if (tsIdx === -1) return [];
+            headerIdx = tsIdx + 1;
         }
 
-        // Find the next timestamp after lastPos to delimit the block
-        const after = tail.slice(lastPos + 1);
-        const next = new RegExp(TIMESTAMP_RE.source, 'm').exec(after);
-        const endPos = next ? (lastPos + 1 + next.index) : tail.length;
-        return tail.slice(lastPos, endPos);
+        const chunks = [];
+        for (let i = headerIdx + 1; i < lines.length; i++) {
+            const t = (lines[i] || '').trim();
+            if (!t) break; // stop at blank line
+            if (TIMESTAMP_RE.test(t)) break; // next snapshot begins
+            // Support concatenated jobs on one physical line separated by '$'
+            const parts = t.split('$').map(p => p.trim()).filter(Boolean);
+            for (const part of parts) { chunks.push(part); }
+        }
+        return chunks;
     } finally {
         fs.closeSync(fd);
     }
@@ -55,27 +61,26 @@ function getGpuUsage() {
         throw new Error(`File not found: ${filePath}`);
     }
 
-        // Read last block text; if not found in 512KB tail, try 2MB
-        let blockText = readLastBlockText(filePath, 512 * 1024);
-        if (!blockText || blockText.length === 0) {
-            blockText = readLastBlockText(filePath, 2 * 1024 * 1024);
+        // Read last snapshot chunks; if not found in 512KB tail, try 2MB
+        let chunks = readLastSnapshotChunks(filePath, 512 * 1024);
+        if (!chunks.length) {
+            chunks = readLastSnapshotChunks(filePath, 2 * 1024 * 1024);
         }
 
-        const sumMatches = (re) => {
-            let total = 0;
-            const it = blockText.matchAll(re);
-            for (const m of it) {
-                total += parseInt(m[1], 10) || 0;
-            }
-            return total;
-        };
+        const totals = { A30: 0, A40: 0, A100: 0 };
 
-        // Count type-specific allocations across entire block text (jobs may be concatenated on one line)
-        return {
-            A30: sumMatches(/gres\/gpu:a30=(\d+)/g),
-            A40: sumMatches(/gres\/gpu:a40=(\d+)/g),
-            A100: sumMatches(/gres\/gpu:a100=(\d+)/g),
-        };
+        for (const chunk of chunks) {
+            // Find all typed GPU assignments and take the last one on the line
+            const matches = Array.from(chunk.matchAll(/gres\/gpu:a(\d+)\s*=\s*(\d+)/g));
+            if (!matches.length) continue;
+            const [_, typeNumStr, countStr] = matches[matches.length - 1];
+            const typeNum = parseInt(typeNumStr, 10);
+            const count = parseInt(countStr, 10) || 0;
+            const key = typeNum === 30 ? 'A30' : typeNum === 40 ? 'A40' : typeNum === 100 ? 'A100' : null;
+            if (key) totals[key] += count;
+        }
+
+        return totals;
 }
 
 module.exports = { getGpuUsage };
