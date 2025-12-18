@@ -84,29 +84,29 @@ function getGpuUsage() {
         throw new Error(`File not found: ${filePath}`);
     }
 
-    const lines = readLastBlockLines(filePath);
-    const gpuUsage = { A30: 0, A40: 0, A100: 0 };
-
-    for (const line of lines) {
-        // Count type-specific allocations only; ignore generic 'gres/gpu=' without type
-        // Use global regex to capture multiple job entries possibly concatenated on one line.
-        const reA30 = /gres\/gpu:a30=(\d+)/g;
-        const reA40 = /gres\/gpu:a40=(\d+)/g;
-        const reA100 = /gres\/gpu:a100=(\d+)/g;
-
-        let m;
-        while ((m = reA30.exec(line)) !== null) {
-            gpuUsage.A30 += parseInt(m[1], 10);
+        // Read last block lines; if not found in 512KB tail, try 2MB
+        let lines = readLastBlockLines(filePath, 512 * 1024);
+        if (!lines.length) {
+            lines = readLastBlockLines(filePath, 2 * 1024 * 1024);
         }
-        while ((m = reA40.exec(line)) !== null) {
-            gpuUsage.A40 += parseInt(m[1], 10);
-        }
-        while ((m = reA100.exec(line)) !== null) {
-            gpuUsage.A100 += parseInt(m[1], 10);
-        }
-    }
 
-    return gpuUsage;
+        const blockText = lines.join(' ');
+
+        const sumMatches = (re) => {
+            let total = 0;
+            const it = blockText.matchAll(re);
+            for (const m of it) {
+                total += parseInt(m[1], 10) || 0;
+            }
+            return total;
+        };
+
+        // Count type-specific allocations across entire block text (jobs may be concatenated on one line)
+        return {
+            A30: sumMatches(/gres\/gpu:a30=(\d+)/g),
+            A40: sumMatches(/gres\/gpu:a40=(\d+)/g),
+            A100: sumMatches(/gres\/gpu:a100=(\d+)/g),
+        };
 }
 
 module.exports = { getGpuUsage };
