@@ -29,7 +29,8 @@ start_a30:
 				continue; \
 			fi; \
 			sleep 1; \
-		done
+		done; \
+		echo "JOB_ID=$$JOB_ID"
 	@echo "Check status with 'make check'"
 	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
 
@@ -61,7 +62,8 @@ start_a40:
 				continue; \
 			fi; \
 			sleep 1; \
-		done
+		done; \
+		echo "JOB_ID=$$JOB_ID"
 	@echo "Check status with 'make check'"
 	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
 
@@ -93,7 +95,8 @@ start_a100:
 				continue; \
 			fi; \
 			sleep 1; \
-		done
+		done; \
+		echo "JOB_ID=$$JOB_ID"
 	@echo "Check status with 'make check'"
 	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
 
