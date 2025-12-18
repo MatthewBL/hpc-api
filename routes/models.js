@@ -38,18 +38,56 @@ function _formatElapsed(startIso) {
   }
 }
 
-function _stateFromJob(job) {
-  if (!job) return 'Stopped';
-  // Check the slurm log for startup marker
-  const jobLog = path.join(__dirname, '..', `slurm-${job._id}.out`);
-  try {
-    const content = fs.readFileSync(jobLog, 'utf8');
-    const started = content.includes('INFO:     Application startup complete.');
-    return started ? 'Running' : 'Setting up';
-  } catch (err) {
-    // If log missing treat as setting up
-    return 'Setting up';
+/**
+ * Derive model state dynamically using squeue and logs.
+ * - No job mapped → Stopped
+ * - Job missing from squeue → Stopped and detach jobId/history
+ * - Job in squeue PENDING → Setting up
+ * - Job in squeue RUNNING but log missing startup marker → Setting up
+ * - Job in squeue RUNNING and startup marker present → Running
+ */
+async function _deriveStateForModel(modelDoc) {
+  const job = await _findJobForModel(modelDoc.id);
+  if (!job) return { state: 'Stopped', job: null };
+
+  // Query current jobs and check presence/state
+  const statusResp = await slurmService.getJobStatus();
+  if (!statusResp.success) {
+    // If we cannot query squeue, fall back to conservative Setting up when job exists
+    return { state: 'Setting up', job };
   }
+
+  const found = (statusResp.jobs || []).find(j => String(j.id) === String(job._id));
+  if (!found) {
+    // Detach job since it's no longer in squeue
+    try { await jobStore.removeJob(job._id); } catch {}
+    try { await jobHistoryStore.updateJobStatus(job._id, 'ended'); } catch {}
+    try {
+      await modelStore.addModel(modelDoc.id, Object.assign({}, modelDoc, { running: Model.defaultRunning() }));
+    } catch {}
+    return { state: 'Stopped', job: null };
+  }
+
+  const st = String(found.status).toUpperCase();
+  if (st.includes('PEND')) {
+    return { state: 'Setting up', job };
+  }
+
+  if (st.includes('RUN')) {
+    // Check logs for startup completion marker
+    const jobLog = path.join(__dirname, '..', 'logs', `slurm-${job._id}.out`);
+    try {
+      const content = fs.readFileSync(jobLog, 'utf8');
+      const started = content.includes('INFO:     Application startup complete.');
+      return { state: started ? 'Running' : 'Setting up', job };
+    } catch (err) {
+      // If log missing treat as setting up
+      return { state: 'Setting up', job };
+    }
+  }
+
+  // Other states (e.g., COMPLETING) → treat as setting up
+  return { state: 'Setting up', job };
 }
 
 // Map a node name to the GPU type used by our Makefile/cluster
@@ -138,8 +176,7 @@ router.get('/', async (req, res) => {
 
     const modelsWithState = await Promise.all(docs.map(async (doc) => {
       try {
-        const job = await _findJobForModel(doc.id);
-        const state = _stateFromJob(job);
+        const { state, job } = await _deriveStateForModel(doc);
         // Ensure running field exists on older documents
         const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
         // If a job exists, prefer job.startTime if available and compute elapsed time
@@ -230,8 +267,7 @@ router.get('/:id', async (req, res) => {
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
-    const job = await _findJobForModel(doc.id);
-    const state = _stateFromJob(job);
+    const { state, job } = await _deriveStateForModel(doc);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
     const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
 
@@ -291,8 +327,7 @@ router.get('/:id/state', async (req, res) => {
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
-    const job = await _findJobForModel(doc.id);
-    const state = _stateFromJob(job);
+    const { state, job } = await _deriveStateForModel(doc);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
     const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
     return respond.success(res, { state, running: runningNormalized });
@@ -520,7 +555,8 @@ router.post('/:id/run', async (req, res) => {
           startTime: jobInfo.startTime,
           time: '00:00:00'
         };
-        await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Setting up', running: runningValues }));
+        // Do not persist state; runtime state is derived on read
+        await modelStore.addModel(id, Object.assign({}, modelDoc, { running: runningValues }));
       } catch (inner) {
         console.warn('Failed to persist model running values after start:', inner.message || inner);
       }
@@ -541,7 +577,8 @@ router.post('/:id/run', async (req, res) => {
           startTime: nowIso,
           time: '00:00:00'
         };
-        await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Setting up', running: runningValues }));
+        // Do not persist state; runtime state is derived on read
+        await modelStore.addModel(id, Object.assign({}, modelDoc, { running: runningValues }));
       } catch (err) {
         // Non-fatal
       }
@@ -702,9 +739,9 @@ router.post('/:id/stop', async (req, res) => {
       console.warn('Failed to update job history status:', err.message || err);
     }
 
-    // Update stored model state to Stopped and clear running values
+    // Clear running values (do not persist state; derive on read)
     try {
-      await modelStore.addModel(id, Object.assign({}, modelDoc, { state: 'Stopped', running: Model.defaultRunning() }));
+      await modelStore.addModel(id, Object.assign({}, modelDoc, { running: Model.defaultRunning() }));
     } catch (err) {
       // ignore
     }
