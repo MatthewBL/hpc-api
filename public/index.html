@@ -552,14 +552,18 @@
             init() {
                 this.apiBase = document.getElementById('apiBaseUrl').value;
                 this.loadModels();
+                // Initial GPU availability load happens on DOMContentLoaded below
                 
                 // Auto-refresh every 5 seconds
                 setInterval(() => this.loadModels(), 5000);
+                // Auto-refresh GPU availability every 20 seconds
+                setInterval(() => this.loadGpuAvailability(), 20000);
 
                 // Update API base when changed
                 document.getElementById('apiBaseUrl').addEventListener('change', (e) => {
                     this.apiBase = e.target.value;
                     this.loadModels();
+                    this.loadGpuAvailability();
                 });
 
                 // Toggle node override inputs
@@ -1045,40 +1049,48 @@
 
             async loadGpuAvailability() {
                 const container = document.getElementById('gpuAvailability');
-                container.innerHTML = '<div class="loading">Loading GPU availability...</div>';
+                // Only show the loading message if nothing has been rendered yet
+                if (!container.innerHTML || container.innerHTML.trim() === '') {
+                    container.innerHTML = '<div class="loading">Loading GPU availability...</div>';
+                }
 
                 try {
                     const response = await fetch(`${this.apiBase}/gpu-availability`);
                     if (!response.ok) throw new Error('Failed to fetch GPU availability');
 
-                    const data = await response.json();
-                    const gpus = data.gpus || [];
+                    const payload = await response.json();
+                    const usage = (payload && payload.data) || {};
+                    const a30 = Number.isFinite(usage.A30) ? usage.A30 : 0;
+                    const a40 = Number.isFinite(usage.A40) ? usage.A40 : 0;
+                    const a100 = Number.isFinite(usage.A100) ? usage.A100 : 0;
 
-                    if (gpus.length === 0) {
-                        container.innerHTML = '<p style="text-align: center; color: #718096;">No GPUs available</p>';
-                        return;
-                    }
-
-                    container.innerHTML = gpus.map(gpu => `
-                        <div class="model-card">
+                    const html = `
+                        <div class="model-card" style="max-width: 420px;">
                             <div class="model-header">
-                                <div class="model-id">GPU: ${gpu.id}</div>
-                                <div class="model-status status-${gpu.status.toLowerCase()}">${gpu.status}</div>
+                                <div class="model-id">GPU Availability</div>
+                                <div class="model-status status-running">LIVE</div>
                             </div>
                             <div class="model-info">
                                 <div class="info-row">
-                                    <span class="info-label">Type:</span>
-                                    <span class="info-value">${gpu.type}</span>
+                                    <span class="info-label">A30:</span>
+                                    <span class="info-value">${a30}/4</span>
                                 </div>
                                 <div class="info-row">
-                                    <span class="info-label">Memory:</span>
-                                    <span class="info-value">${gpu.memory} GB</span>
+                                    <span class="info-label">A40:</span>
+                                    <span class="info-value">${a40}/16</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">A100:</span>
+                                    <span class="info-value">${a100}/8</span>
                                 </div>
                             </div>
                         </div>
-                    `).join('');
+                    `;
+
+                    container.innerHTML = html;
                 } catch (error) {
-                    container.innerHTML = `<p style="color: #f56565; text-align: center;">Error: ${error.message}</p>`;
+                    // Keep showing previous values; notify the user instead of clearing the UI
+                    this.showNotification(`GPU availability error: ${error.message}`, 'error');
                 }
             },
         };
