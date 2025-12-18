@@ -24,6 +24,35 @@ function getLastBlockGPUCounts(fileContent) {
     'A100': 0
   };
   
+  // Process each job line in the last block (skip header line)
+  for (let i = startIndex; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Skip header lines and timestamp lines
+    if (line.includes('JOBID') || line.includes('Thu Dec')) {
+      continue;
+    }
+    
+    // Extract GPU information from TRES_ALLOC column
+    const columns = line.split(/\s{2,}/);
+    if (columns.length < 4) continue;
+    
+    const tresAlloc = columns[2];
+    
+    // Extract GPU type and count using regex
+    const gpuRegex = /gres\/gpu:(\w+)=(\d+)/g;
+    let match;
+    
+    while ((match = gpuRegex.exec(tresAlloc)) !== null) {
+      const gpuType = match[1].toUpperCase();
+      const count = parseInt(match[2], 10);
+      
+      if (gpuCounts.hasOwnProperty(gpuType)) {
+        gpuCounts[gpuType] += count;
+      }
+    }
+  }
+  
   return gpuCounts;
 }
 
