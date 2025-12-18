@@ -8,6 +8,10 @@
  * - state: string
  */
 
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
+
 class Model {
   /**
    * Create a Model
@@ -164,6 +168,54 @@ class Model {
    */
   static fromObject(obj) {
     return new Model(obj);
+  }
+
+  /**
+   * Check whether the associated SLURM job should be auto-canceled.
+   * If this model has a running job (running.job_id) and more than
+   * `thresholdSec` seconds have elapsed since `running.startTime`, and
+   * squeue reports the job state code as PD (pending), then this method
+   * will issue `scancel <job_id>` and return { canceled: true }.
+   *
+   * This method is intentionally side-effecting only at the SLURM level;
+   * it does not mutate persistence stores. Callers may update stores after
+   * a successful cancellation.
+   *
+   * @param {number} [thresholdSec=30]
+   * @returns {Promise<{canceled: boolean, reason?: string, error?: string}>}
+   */
+  async maybeAutoCancelPending(thresholdSec = 30) {
+    try {
+      const jobId = this?.running?.job_id;
+      const startIso = this?.running?.startTime;
+      if (!jobId) return { canceled: false, reason: 'no-job' };
+      if (!startIso || typeof startIso !== 'string' || startIso.length === 0) {
+        return { canceled: false, reason: 'no-start' };
+      }
+
+      const start = new Date(startIso);
+      if (Number.isNaN(start.getTime())) {
+        return { canceled: false, reason: 'invalid-start' };
+      }
+      const now = new Date();
+      const elapsedSec = Math.floor((now - start) / 1000);
+      if (elapsedSec <= Number(thresholdSec) || !Number.isFinite(elapsedSec)) {
+        return { canceled: false, reason: 'under-threshold' };
+      }
+
+      // Query the short state code via squeue (e.g., PD, R, CG)
+      const { stdout: stateOut = '' } = await execAsync(`squeue -j ${jobId} --noheader -o "%t"`);
+      const stateCode = String(stateOut || '').trim();
+      if (stateCode !== 'PD') {
+        return { canceled: false, reason: `state=${stateCode}` };
+      }
+
+      // Cancel the job
+      await execAsync(`scancel ${jobId}`);
+      return { canceled: true };
+    } catch (err) {
+      return { canceled: false, error: (err && err.message) ? err.message : String(err) };
+    }
   }
 }
 

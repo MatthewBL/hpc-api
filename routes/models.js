@@ -201,6 +201,8 @@ router.get('/', async (req, res) => {
 
     const modelsWithState = await Promise.all(docs.map(async (doc) => {
       try {
+        // Check for auto-cancel condition before deriving state
+        try { await Model.fromObject(doc).maybeAutoCancelPending(30); } catch {}
         const { state, job } = await _deriveStateForModel(doc);
         // Ensure running field exists on older documents
         const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
@@ -292,6 +294,9 @@ router.get('/:id', async (req, res) => {
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
+    // Auto-cancel if pending beyond threshold
+    try { await Model.fromObject(doc).maybeAutoCancelPending(30); } catch {}
+
     const { state, job } = await _deriveStateForModel(doc);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
     const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
@@ -351,6 +356,9 @@ router.get('/:id/state', async (req, res) => {
     const { id } = req.params;
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
+
+    // Auto-cancel if pending beyond threshold
+    try { await Model.fromObject(doc).maybeAutoCancelPending(30); } catch {}
 
     const { state, job } = await _deriveStateForModel(doc);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
