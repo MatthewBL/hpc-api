@@ -10,64 +10,35 @@ const HEADER_RE = /^JOBID\s+USER\s+TRES_ALLOC\s+STATE$/;
  * A "block" begins with a timestamp line and includes the subsequent header
  * and job lines until the next timestamp or EOF.
  */
-function readLastBlockLines(filePath, tailSizeBytes = 512 * 1024) {
+function readLastBlockText(filePath, tailSizeBytes = 512 * 1024) {
     const stats = fs.statSync(filePath);
     const bytesToRead = Math.min(stats.size, tailSizeBytes);
     const fd = fs.openSync(filePath, 'r');
     try {
         const buffer = Buffer.alloc(bytesToRead);
         fs.readSync(fd, buffer, 0, bytesToRead, stats.size - bytesToRead);
-        const content = buffer.toString('utf8');
-        const lines = content.split(/\r?\n/);
+        const tail = buffer.toString('utf8');
 
-        // Find the index of the last timestamp line in the tail
-        let tsIdx = -1;
-        for (let i = lines.length - 1; i >= 0; i--) {
-            if (TIMESTAMP_RE.test(lines[i].trim())) {
-                tsIdx = i;
-                break;
-            }
+        // Find the position of the last timestamp in the tail
+        const re = new RegExp(TIMESTAMP_RE.source, 'gm');
+        let m, lastPos = -1;
+        while ((m = re.exec(tail)) !== null) {
+            lastPos = m.index;
+        }
+        if (lastPos === -1) {
+            // Try to find header as a fallback and assume timestamp precedes it on original file
+            const hdr = new RegExp(HEADER_RE.source, 'm');
+            const hm = hdr.exec(tail);
+            if (!hm) return '';
+            // Take a conservative slice starting slightly before header occurrence
+            lastPos = Math.max(0, hm.index - 64);
         }
 
-        // Fallback: if no timestamp found in tail, try last header line
-        if (tsIdx === -1) {
-            for (let i = lines.length - 1; i >= 0; i--) {
-                if (HEADER_RE.test(lines[i].trim())) {
-                    tsIdx = i - 1; // assume timestamp is right above header
-                    break;
-                }
-            }
-        }
-
-        if (tsIdx === -1) {
-            // Could not locate a block in the tail
-            return [];
-        }
-
-        // From timestamp, locate header (usually immediate next line)
-        let headerIdx = tsIdx + 1;
-        if (!HEADER_RE.test((lines[headerIdx] || '').trim())) {
-            // Search forward within a small window for header
-            const end = Math.min(lines.length, tsIdx + 10);
-            headerIdx = -1;
-            for (let i = tsIdx + 1; i < end; i++) {
-                if (HEADER_RE.test((lines[i] || '').trim())) {
-                    headerIdx = i;
-                    break;
-                }
-            }
-            if (headerIdx === -1) return [];
-        }
-
-        // Block lines: from headerIdx+1 until next timestamp or EOF
-        const blockLines = [];
-        for (let i = headerIdx + 1; i < lines.length; i++) {
-            const line = (lines[i] || '').trim();
-            if (!line) continue;
-            if (TIMESTAMP_RE.test(line)) break; // next block begins
-            blockLines.push(line);
-        }
-        return blockLines;
+        // Find the next timestamp after lastPos to delimit the block
+        const after = tail.slice(lastPos + 1);
+        const next = new RegExp(TIMESTAMP_RE.source, 'm').exec(after);
+        const endPos = next ? (lastPos + 1 + next.index) : tail.length;
+        return tail.slice(lastPos, endPos);
     } finally {
         fs.closeSync(fd);
     }
@@ -84,13 +55,11 @@ function getGpuUsage() {
         throw new Error(`File not found: ${filePath}`);
     }
 
-        // Read last block lines; if not found in 512KB tail, try 2MB
-        let lines = readLastBlockLines(filePath, 512 * 1024);
-        if (!lines.length) {
-            lines = readLastBlockLines(filePath, 2 * 1024 * 1024);
+        // Read last block text; if not found in 512KB tail, try 2MB
+        let blockText = readLastBlockText(filePath, 512 * 1024);
+        if (!blockText || blockText.length === 0) {
+            blockText = readLastBlockText(filePath, 2 * 1024 * 1024);
         }
-
-        const blockText = lines.join(' ');
 
         const sumMatches = (re) => {
             let total = 0;
