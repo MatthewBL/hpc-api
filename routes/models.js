@@ -70,31 +70,6 @@ async function _deriveStateForModel(modelDoc) {
 
   const st = String(found.status).toUpperCase();
   if (st.includes('PEND')) {
-    // If pending for more than 30 seconds since we started the job, auto-cancel.
-    // Rely on the model's recorded start time if available; fall back to job.startTime.
-    try {
-      const startIso = (modelDoc.running && modelDoc.running.startTime) ? modelDoc.running.startTime : job.startTime;
-      if (startIso) {
-        const start = new Date(startIso);
-        if (!Number.isNaN(start.getTime())) {
-          const now = new Date();
-          const elapsedSec = Math.floor((now - start) / 1000);
-          if (elapsedSec > 30) {
-            const cancel = await slurmService.cancelJob(job._id, { force: true });
-            if (cancel && cancel.success) {
-              // Update job history and clear model running values
-              try { await jobHistoryStore.updateJobStatus(job._id, 'ended'); } catch {}
-              try {
-                await modelStore.addModel(modelDoc.id, Object.assign({}, modelDoc, { running: Model.defaultRunning() }));
-              } catch {}
-              return { state: 'Stopped', job: null };
-            }
-          }
-        }
-      }
-    } catch (err) {
-      // Swallow errors; if we cannot cancel, keep reporting Setting up
-    }
     return { state: 'Setting up', job };
   }
 
@@ -201,8 +176,6 @@ router.get('/', async (req, res) => {
 
     const modelsWithState = await Promise.all(docs.map(async (doc) => {
       try {
-        // Check for auto-cancel condition before deriving state
-        try { await Model.fromObject(doc).maybeAutoCancelPending(30); } catch {}
         const { state, job } = await _deriveStateForModel(doc);
         // Ensure running field exists on older documents
         const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
@@ -213,6 +186,19 @@ router.get('/', async (req, res) => {
           if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
           runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
         }
+
+        // With time computed, check for auto-cancel if pending > 30s
+        try {
+          const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
+          const cancelRes = await modelInst.maybeAutoCancelPending(30);
+          if (cancelRes && cancelRes.canceled) {
+            // Re-derive state after cancel
+            const re = await _deriveStateForModel(doc);
+            const runningAfter = Model.defaultRunning();
+            return Object.assign({}, doc, { state: re.state, running: runningAfter });
+          }
+        } catch {}
+
         return Object.assign({}, doc, { state, running: runningNormalized });
       } catch (innerErr) {
         return Object.assign({}, doc, { state: 'Unknown', error: innerErr.message, running: Model.defaultRunning() });
@@ -294,12 +280,18 @@ router.get('/:id', async (req, res) => {
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
-    // Auto-cancel if pending beyond threshold
-    try { await Model.fromObject(doc).maybeAutoCancelPending(30); } catch {}
-
     const { state, job } = await _deriveStateForModel(doc);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
     const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
+    // Auto-cancel now that time is available
+    try {
+      const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
+      const cancelRes = await modelInst.maybeAutoCancelPending(30);
+      if (cancelRes && cancelRes.canceled) {
+        const re = await _deriveStateForModel(doc);
+        return respond.success(res, { model: Object.assign({}, doc, { state: re.state, running: Model.defaultRunning() }) });
+      }
+    } catch {}
 
     return respond.success(res, { model: Object.assign({}, doc, { state, running: runningNormalized }) });
   } catch (error) {
@@ -357,12 +349,19 @@ router.get('/:id/state', async (req, res) => {
     const doc = await modelStore.findModel(id);
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
-    // Auto-cancel if pending beyond threshold
-    try { await Model.fromObject(doc).maybeAutoCancelPending(30); } catch {}
-
     const { state, job } = await _deriveStateForModel(doc);
     const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
     const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
+    // Auto-cancel now that time is available
+    try {
+      const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
+      const cancelRes = await modelInst.maybeAutoCancelPending(30);
+      if (cancelRes && cancelRes.canceled) {
+        const re = await _deriveStateForModel(doc);
+        return respond.success(res, { state: re.state, running: Model.defaultRunning() });
+      }
+    } catch {}
+
     return respond.success(res, { state, running: runningNormalized });
   } catch (error) {
     return respond.error(res, error.message || 'Failed to get model state', 500);

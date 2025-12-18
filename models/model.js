@@ -187,19 +187,31 @@ class Model {
   async maybeAutoCancelPending(thresholdSec = 30) {
     try {
       const jobId = this?.running?.job_id;
+      const timeStr = this?.running?.time; // expected HH:MM:SS
       const startIso = this?.running?.startTime;
       if (!jobId) return { canceled: false, reason: 'no-job' };
-      if (!startIso || typeof startIso !== 'string' || startIso.length === 0) {
-        return { canceled: false, reason: 'no-start' };
+      // Prefer the already computed running.time (HH:MM:SS)
+      let elapsedSec = null;
+      if (typeof timeStr === 'string' && timeStr.includes(':')) {
+        const parts = timeStr.split(':').map(p => parseInt(p, 10));
+        if (parts.length === 3 && parts.every(n => Number.isFinite(n) && n >= 0)) {
+          const [hh, mm, ss] = parts;
+          elapsedSec = (hh * 3600) + (mm * 60) + ss;
+        }
       }
-
-      const start = new Date(startIso);
-      if (Number.isNaN(start.getTime())) {
-        return { canceled: false, reason: 'invalid-start' };
+      // Fallback to startTime if time is not present
+      if (elapsedSec === null) {
+        if (!startIso || typeof startIso !== 'string' || startIso.length === 0) {
+          return { canceled: false, reason: 'no-time' };
+        }
+        const start = new Date(startIso);
+        if (Number.isNaN(start.getTime())) {
+          return { canceled: false, reason: 'invalid-start' };
+        }
+        const now = new Date();
+        elapsedSec = Math.floor((now - start) / 1000);
       }
-      const now = new Date();
-      const elapsedSec = Math.floor((now - start) / 1000);
-      if (elapsedSec <= Number(thresholdSec) || !Number.isFinite(elapsedSec)) {
+      if (!Number.isFinite(elapsedSec) || elapsedSec <= Number(thresholdSec)) {
         return { canceled: false, reason: 'under-threshold' };
       }
 
