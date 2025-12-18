@@ -89,12 +89,21 @@ function getGpuUsage() {
 
     for (const line of lines) {
         // Count type-specific allocations only; ignore generic 'gres/gpu=' without type
-        const a30 = line.match(/gres\/gpu:a30=(\d+)/);
-        const a40 = line.match(/gres\/gpu:a40=(\d+)/);
-        const a100 = line.match(/gres\/gpu:a100=(\d+)/);
-        if (a30) gpuUsage.A30 += parseInt(a30[1], 10);
-        if (a40) gpuUsage.A40 += parseInt(a40[1], 10);
-        if (a100) gpuUsage.A100 += parseInt(a100[1], 10);
+        // Use global regex to capture multiple job entries possibly concatenated on one line.
+        const reA30 = /gres\/gpu:a30=(\d+)/g;
+        const reA40 = /gres\/gpu:a40=(\d+)/g;
+        const reA100 = /gres\/gpu:a100=(\d+)/g;
+
+        let m;
+        while ((m = reA30.exec(line)) !== null) {
+            gpuUsage.A30 += parseInt(m[1], 10);
+        }
+        while ((m = reA40.exec(line)) !== null) {
+            gpuUsage.A40 += parseInt(m[1], 10);
+        }
+        while ((m = reA100.exec(line)) !== null) {
+            gpuUsage.A100 += parseInt(m[1], 10);
+        }
     }
 
     return gpuUsage;
