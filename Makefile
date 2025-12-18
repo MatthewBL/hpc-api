@@ -7,32 +7,9 @@ start_a30:
 			echo "ERROR: Failed to capture JOB_ID from submission."; \
 			exit 1; \
 		fi; \
-		echo "Waiting up to 30 seconds for job $$JOB_ID to start..."; \
-		for i in $$(seq 1 30); do \
-			STATE_CODE=$$(squeue -j $$JOB_ID --noheader -o "%t" 2>/dev/null || true); \
-			if [ -z "$$STATE_CODE" ]; then \
-				sleep 1; \
-				continue; \
-			fi; \
-			if [ "$$STATE_CODE" = "R" ] || [ "$$STATE_CODE" = "CG" ]; then \
-				STATE=$$(squeue -j $$JOB_ID --noheader -o "%t %R" 2>/dev/null || true); \
-				echo "Job started: $$STATE"; \
-				break; \
-			fi; \
-			if [ "$$STATE_CODE" = "PD" ]; then \
-				if [ $$i -eq 30 ]; then \
-					echo "ERROR: Job $$JOB_ID pending for 30 seconds. Canceling job..."; \
-					scancel $$JOB_ID; \
-					exit 1; \
-				fi; \
-				sleep 1; \
-				continue; \
-			fi; \
-			sleep 1; \
-		done; \
 		echo "JOB_ID=$$JOB_ID"
 	@echo "Check status with 'make check'"
-	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
+	@echo "Use GET /api/models to derive state; pending >30s will auto-cancel."
 
 start_a40:
 		@JOB_ID=$$(./vllm_serve_run_a40.sh ${MODEL} ${PORT} ${GPUS} ${CPUS} ${PERIOD} ${NODE} | sed -n 's/^JOB_ID=//p'); \
@@ -40,32 +17,9 @@ start_a40:
 			echo "ERROR: Failed to capture JOB_ID from submission."; \
 			exit 1; \
 		fi; \
-		echo "Waiting up to 30 seconds for job $$JOB_ID to start..."; \
-		for i in $$(seq 1 30); do \
-			STATE_CODE=$$(squeue -j $$JOB_ID --noheader -o "%t" 2>/dev/null || true); \
-			if [ -z "$$STATE_CODE" ]; then \
-				sleep 1; \
-				continue; \
-			fi; \
-			if [ "$$STATE_CODE" = "R" ] || [ "$$STATE_CODE" = "CG" ]; then \
-				STATE=$$(squeue -j $$JOB_ID --noheader -o "%t %R" 2>/dev/null || true); \
-				echo "Job started: $$STATE"; \
-				break; \
-			fi; \
-			if [ "$$STATE_CODE" = "PD" ]; then \
-				if [ $$i -eq 30 ]; then \
-					echo "ERROR: Job $$JOB_ID pending for 30 seconds. Canceling job..."; \
-					scancel $$JOB_ID; \
-					exit 1; \
-				fi; \
-				sleep 1; \
-				continue; \
-			fi; \
-			sleep 1; \
-		done; \
 		echo "JOB_ID=$$JOB_ID"
 	@echo "Check status with 'make check'"
-	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
+	@echo "Use GET /api/models to derive state; pending >30s will auto-cancel."
 
 start_a100:
 		@JOB_ID=$$(./vllm_serve_run_a100.sh ${MODEL} ${PORT} ${GPUS} ${CPUS} ${PERIOD} ${NODE} | sed -n 's/^JOB_ID=//p'); \
@@ -73,32 +27,9 @@ start_a100:
 			echo "ERROR: Failed to capture JOB_ID from submission."; \
 			exit 1; \
 		fi; \
-		echo "Waiting up to 30 seconds for job $$JOB_ID to start..."; \
-		for i in $$(seq 1 30); do \
-			STATE_CODE=$$(squeue -j $$JOB_ID --noheader -o "%t" 2>/dev/null || true); \
-			if [ -z "$$STATE_CODE" ]; then \
-				sleep 1; \
-				continue; \
-			fi; \
-			if [ "$$STATE_CODE" = "R" ] || [ "$$STATE_CODE" = "CG" ]; then \
-				STATE=$$(squeue -j $$JOB_ID --noheader -o "%t %R" 2>/dev/null || true); \
-				echo "Job started: $$STATE"; \
-				break; \
-			fi; \
-			if [ "$$STATE_CODE" = "PD" ]; then \
-				if [ $$i -eq 30 ]; then \
-					echo "ERROR: Job $$JOB_ID pending for 30 seconds. Canceling job..."; \
-					scancel $$JOB_ID; \
-					exit 1; \
-				fi; \
-				sleep 1; \
-				continue; \
-			fi; \
-			sleep 1; \
-		done; \
 		echo "JOB_ID=$$JOB_ID"
 	@echo "Check status with 'make check'"
-	@echo "Check if app is ready with 'make log', it should show 'INFO:     Application startup complete.'"
+	@echo "Use GET /api/models to derive state; pending >30s will auto-cancel."
 
 check: 
 	@squeue
