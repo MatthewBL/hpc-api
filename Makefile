@@ -8,7 +8,7 @@ start_a30:
 			exit 1; \
 		fi; \
 		echo "Waiting up to 30 seconds for job $$JOB_ID to start..."; \
-		for i in {1..30}; do \
+		for i in $$(seq 1 30); do \
 			STATE_CODE=$$(squeue -j $$JOB_ID --noheader -o "%t" 2>/dev/null || true); \
 			if [ -z "$$STATE_CODE" ]; then \
 				sleep 1; \
@@ -40,7 +40,7 @@ start_a40:
 			exit 1; \
 		fi; \
 		echo "Waiting up to 30 seconds for job $$JOB_ID to start..."; \
-		for i in {1..30}; do \
+		for i in $$(seq 1 30); do \
 			STATE_CODE=$$(squeue -j $$JOB_ID --noheader -o "%t" 2>/dev/null || true); \
 			if [ -z "$$STATE_CODE" ]; then \
 				sleep 1; \
@@ -72,7 +72,7 @@ start_a100:
 			exit 1; \
 		fi; \
 		echo "Waiting up to 30 seconds for job $$JOB_ID to start..."; \
-		for i in {1..30}; do \
+		for i in $$(seq 1 30); do \
 			STATE_CODE=$$(squeue -j $$JOB_ID --noheader -o "%t" 2>/dev/null || true); \
 			if [ -z "$$STATE_CODE" ]; then \
 				sleep 1; \
