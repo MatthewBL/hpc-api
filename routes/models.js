@@ -97,7 +97,7 @@ async function _deriveStateForModel(modelDoc) {
     const jobLog = path.join(__dirname, '..', 'logs', `slurm-${job._id}.out`);
     try {
       const content = fs.readFileSync(jobLog, 'utf8');
-      const started = content.includes('INFO:     Application startup complete.');
+      const started = content.includes('INFO:     Application startup complete.') || content.includes('Available routes are:');
       return { state: started ? 'Running' : 'Setting up', job };
     } catch (err) {
       // If log missing treat as setting up
