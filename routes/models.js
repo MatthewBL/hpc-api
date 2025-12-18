@@ -71,16 +71,16 @@ async function _deriveStateForModel(modelDoc) {
   const st = String(found.status).toUpperCase();
   if (st.includes('PEND')) {
     // If pending for more than 30 seconds since we started the job, auto-cancel.
-    // We rely on the persisted job.startTime set at POST /run.
+    // Rely on the model's recorded start time if available; fall back to job.startTime.
     try {
-      const startIso = job.startTime;
+      const startIso = (modelDoc.running && modelDoc.running.startTime) ? modelDoc.running.startTime : job.startTime;
       if (startIso) {
         const start = new Date(startIso);
         if (!Number.isNaN(start.getTime())) {
           const now = new Date();
           const elapsedSec = Math.floor((now - start) / 1000);
           if (elapsedSec > 30) {
-            const cancel = await slurmService.cancelJob(job._id);
+            const cancel = await slurmService.cancelJob(job._id, { force: true });
             if (cancel && cancel.success) {
               // Update job history and clear model running values
               try { await jobHistoryStore.updateJobStatus(job._id, 'ended'); } catch {}
