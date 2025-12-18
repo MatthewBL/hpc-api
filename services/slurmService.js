@@ -41,24 +41,6 @@ class SlurmService {
           console.warn(`Failed to get node for job ${jobId}:`, nodeErr.message || nodeErr);
           gpuNode = node; // Fallback to requested node
         }
-
-        // Schedule a background check in ~30s to cancel if still pending
-        setTimeout(async () => {
-          try {
-            const { stdout: stateOut } = await execAsync(`squeue -j ${jobId} --noheader -o "%t"`);
-            const stateCode = (stateOut || '').trim();
-            if (stateCode === 'PD') {
-              const cancelRes = await this.cancelJob(jobId);
-              if (!cancelRes.success) {
-                console.warn(`Auto-cancel failed for job ${jobId}:`, cancelRes.error || cancelRes);
-              } else {
-                console.log(`Auto-cancelled pending job ${jobId} after 30s.`);
-              }
-            }
-          } catch (bgErr) {
-            // If squeue fails, do nothing; subsequent state derivation will clean up
-          }
-        }, 30000);
       } else {
         // If we still don't have a job ID, log but continue (job was still submitted)
         console.warn('Could not extract job ID from shell script output');

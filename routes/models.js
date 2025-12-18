@@ -70,6 +70,31 @@ async function _deriveStateForModel(modelDoc) {
 
   const st = String(found.status).toUpperCase();
   if (st.includes('PEND')) {
+    // If pending for more than 30 seconds since we started the job, auto-cancel.
+    // We rely on the persisted job.startTime set at POST /run.
+    try {
+      const startIso = job.startTime;
+      if (startIso) {
+        const start = new Date(startIso);
+        if (!Number.isNaN(start.getTime())) {
+          const now = new Date();
+          const elapsedSec = Math.floor((now - start) / 1000);
+          if (elapsedSec > 30) {
+            const cancel = await slurmService.cancelJob(job._id);
+            if (cancel && cancel.success) {
+              // Update job history and clear model running values
+              try { await jobHistoryStore.updateJobStatus(job._id, 'ended'); } catch {}
+              try {
+                await modelStore.addModel(modelDoc.id, Object.assign({}, modelDoc, { running: Model.defaultRunning() }));
+              } catch {}
+              return { state: 'Stopped', job: null };
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Swallow errors; if we cannot cancel, keep reporting Setting up
+    }
     return { state: 'Setting up', job };
   }
 
