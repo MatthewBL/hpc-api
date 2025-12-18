@@ -8,6 +8,9 @@ const jobStore = require('../services/jobStore');
 const jobHistoryStore = require('../services/jobHistoryStore');
 const slurmService = require('../services/slurmService');
 const { getGpuUsage } = require('../services/gpuAvailabilityService');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 
 const router = express.Router();
 
@@ -53,7 +56,23 @@ async function _deriveStateForModel(modelDoc) {
   // Query current jobs and check presence/state
   const statusResp = await slurmService.getJobStatus();
   if (!statusResp.success) {
-    // If we cannot query squeue, fall back to conservative Setting up when job exists
+    // Fallback: directly query squeue for this jobId; if missing, detach and mark Stopped
+    try {
+      const { stdout } = await execAsync(`squeue -j ${job._id} --noheader -o "%i"`);
+      const present = String(stdout || '').trim();
+      if (!present) {
+        try { await jobStore.removeJob(job._id); } catch {}
+        try { await jobHistoryStore.updateJobStatus(job._id, 'ended'); } catch {}
+        try {
+          await modelStore.addModel(modelDoc.id, Object.assign({}, modelDoc, { running: Model.defaultRunning() }));
+        } catch {}
+        return { state: 'Stopped', job: null };
+      }
+    } catch (e) {
+      // If fallback also fails, conservatively report Setting up
+      return { state: 'Setting up', job };
+    }
+    // If fallback indicates job is present, keep deriving as Setting up for now
     return { state: 'Setting up', job };
   }
 
@@ -178,12 +197,22 @@ router.get('/', async (req, res) => {
       try {
         const { state, job } = await _deriveStateForModel(doc);
         // Ensure running field exists on older documents
-        const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
-        // If a job exists, prefer job.startTime if available and compute elapsed time
-        let runningNormalized = Model.defaultRunning();
+        const baseRunning = (doc.running && typeof doc.running === 'object')
+          ? Object.assign({}, Model.defaultRunning(), doc.running)
+          : Model.defaultRunning();
+
+        // Preserve stored running info even when no job mapping exists
+        let runningNormalized = Object.assign({}, baseRunning);
+
+        // Compute elapsed time if we have a startTime
+        if (runningNormalized.startTime) {
+          runningNormalized.time = _formatElapsed(runningNormalized.startTime);
+        }
+
+        // If a job exists, enrich running fields from the job mapping
         if (job) {
-          runningNormalized = Object.assign({}, running);
           if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
+          if (!runningNormalized.job_id) runningNormalized.job_id = String(job._id);
           runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
         }
 
@@ -281,8 +310,19 @@ router.get('/:id', async (req, res) => {
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
     const { state, job } = await _deriveStateForModel(doc);
-    const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
-    const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
+    const baseRunning = (doc.running && typeof doc.running === 'object')
+      ? Object.assign({}, Model.defaultRunning(), doc.running)
+      : Model.defaultRunning();
+
+    let runningNormalized = Object.assign({}, baseRunning);
+    if (runningNormalized.startTime) {
+      runningNormalized.time = _formatElapsed(runningNormalized.startTime);
+    }
+    if (job) {
+      if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
+      if (!runningNormalized.job_id) runningNormalized.job_id = String(job._id);
+      runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
+    }
     // Auto-cancel now that time is available
     try {
       const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
@@ -350,8 +390,19 @@ router.get('/:id/state', async (req, res) => {
     if (!doc) return respond.error(res, `Model ${id} not found`, 404);
 
     const { state, job } = await _deriveStateForModel(doc);
-    const running = (doc.running && typeof doc.running === 'object') ? Object.assign({}, Model.defaultRunning(), doc.running) : Model.defaultRunning();
-    const runningNormalized = job ? Object.assign({}, running, { startTime: running.startTime || job.startTime, time: (running.startTime || job.startTime) ? _formatElapsed(running.startTime || job.startTime) : null }) : Model.defaultRunning();
+    const baseRunning = (doc.running && typeof doc.running === 'object')
+      ? Object.assign({}, Model.defaultRunning(), doc.running)
+      : Model.defaultRunning();
+
+    let runningNormalized = Object.assign({}, baseRunning);
+    if (runningNormalized.startTime) {
+      runningNormalized.time = _formatElapsed(runningNormalized.startTime);
+    }
+    if (job) {
+      if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
+      if (!runningNormalized.job_id) runningNormalized.job_id = String(job._id);
+      runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
+    }
     // Auto-cancel now that time is available
     try {
       const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
