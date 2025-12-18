@@ -1,51 +1,56 @@
 const fs = require('fs');
 const path = require('path');
 
-function getLastBlockGPUCountsAlternative(fileContent) {
-  const lines = fileContent.trim().split('\n');
+function getLastBlockGPUCounts(fileContent) {
+  // Split by lines and filter out empty lines
+  const lines = fileContent.trim().split('\n').filter(line => line.trim());
+  
+  // Find the start index of the last timestamp block
+  let lastTimestampIndex = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].includes('JOBID') && i > 0) {
+      lastTimestampIndex = i - 1;
+      break;
+    }
+  }
+  
+  // If no timestamp found, start from beginning
+  const startIndex = lastTimestampIndex >= 0 ? lastTimestampIndex + 2 : 0;
+  
+  // Initialize GPU counts
   const gpuCounts = {
     'A30': 0,
     'A40': 0,
     'A100': 0
   };
   
-  // Find the last occurrence of "JOBID" header
-  let lastHeaderIndex = -1;
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].trim().startsWith('JOBID')) {
-      lastHeaderIndex = i;
-      break;
-    }
-  }
-  
-  if (lastHeaderIndex === -1) {
-    return gpuCounts;
-  }
-  
-  // Process lines after the last header
-  for (let i = lastHeaderIndex + 1; i < lines.length; i++) {
-    const line = lines[i].trim();
+  // Process each job line in the last block (skip header line)
+  for (let i = startIndex; i < lines.length; i++) {
+    const line = lines[i];
     
-    // Stop when we reach the next timestamp or empty line
-    if (!line || line.startsWith('Thu Dec')) {
-      break;
+    // Skip header lines and timestamp lines
+    if (line.includes('JOBID') || line.includes('Thu Dec')) {
+      continue;
     }
     
-    // Split by multiple spaces to get columns
-    const parts = line.split(/\s+/);
-    if (parts.length < 3) continue;
+    // Extract GPU information from TRES_ALLOC column
+    const columns = line.split(/\s{2,}/);
+    if (columns.length < 4) continue;
     
-    // Find the TRES_ALLOC part (it contains GPU info)
-    const tresAlloc = parts.slice(2, -1).join(' ');
+    const tresAlloc = columns[2];
     
-    // Extract specific GPU types
-    const a30Match = tresAlloc.match(/gres\/gpu:a30=(\d+)/i);
-    const a40Match = tresAlloc.match(/gres\/gpu:a40=(\d+)/i);
-    const a100Match = tresAlloc.match(/gres\/gpu:a100=(\d+)/i);
+    // Extract GPU type and count using regex
+    const gpuRegex = /gres\/gpu:(\w+)=(\d+)/g;
+    let match;
     
-    if (a30Match) gpuCounts.A30 += parseInt(a30Match[1]);
-    if (a40Match) gpuCounts.A40 += parseInt(a40Match[1]);
-    if (a100Match) gpuCounts.A100 += parseInt(a100Match[1]);
+    while ((match = gpuRegex.exec(tresAlloc)) !== null) {
+      const gpuType = match[1].toUpperCase();
+      const count = parseInt(match[2], 10);
+      
+      if (gpuCounts.hasOwnProperty(gpuType)) {
+        gpuCounts[gpuType] += count;
+      }
+    }
   }
   
   return gpuCounts;
@@ -65,7 +70,7 @@ function getGpuUsage() {
     const fileContent = fs.readFileSync(filePath, 'utf8');
 
     // Use the alternative parsing function
-    const totals = getLastBlockGPUCountsAlternative(fileContent);
+    const totals = getLastBlockGPUCounts(fileContent);
         
     return totals;
 }
