@@ -11,6 +11,7 @@ const { getGpuUsage } = require('../services/gpuAvailabilityService');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
+const axios = require('axios');
 
 const router = express.Router();
 
@@ -243,27 +244,135 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/models/hello-world
  *
- * Sends a "Hello world" request to a model deployed on a specific node (gpu01-08).
+ * Sends a small prompt (default: "Hello world") to the vLLM server running on a GPU node
+ * and returns the model's answer. If the request fails, returns the error details to
+ * diagnose whether the LLM is alive.
+ *
+ * Query params:
+ * - node: gpu01..gpu08 (optional; if missing, tries first running job)
+ * - port: service port (optional; if missing, tries to infer from jobStore or defaults to 9000)
+ * - model: served model name for OpenAI-compatible endpoint (optional; inferred when possible)
+ * - prompt: text to send (optional; default: "Hello world")
+ * - timeoutMs: request timeout in ms (optional; default: 5000)
+ * - temperature, max_tokens: generation controls (optional)
  */
 router.get('/hello-world', async (req, res) => {
-  const node = req.query.node || 'gpu01'; // Default to gpu01 if no node is specified
-
-  if (!/^gpu0[1-8]$/.test(node)) {
-    return res.status(400).json({ error: 'Invalid node. Must be one of gpu01-08.' });
-  }
-
   try {
-    // Simulate sending a "Hello world" request to the model
-    const response = {
-      message: 'Hello world',
-      node,
-      timestamp: new Date().toISOString(),
+    const prompt = String(req.query.prompt || 'Hello world');
+    const temperature = req.query.temperature !== undefined ? Number(req.query.temperature) : 0;
+    const maxTokens = req.query.max_tokens !== undefined ? Number(req.query.max_tokens) : 64;
+    const timeoutMs = req.query.timeoutMs !== undefined ? Number(req.query.timeoutMs) : 5000;
+
+    let node = req.query.node ? String(req.query.node) : '';
+    let port = req.query.port !== undefined ? Number(req.query.port) : NaN;
+    let modelName = req.query.model ? String(req.query.model) : '';
+
+    if (node) {
+      if (!/^gpu0[1-8]$/.test(node)) {
+        return respond.error(res, 'Invalid node. Must be one of gpu01-08.', 400);
+      }
+    }
+
+    // Try to infer node/port/model from current jobs if not fully provided
+    try {
+      if (!node || !Number.isFinite(port) || !modelName) {
+        const jobs = await jobStore.getAll();
+        let match = null;
+        if (node) {
+          match = jobs.find(j => String(j.node).toLowerCase() === node.toLowerCase()) || null;
+        } else {
+          match = jobs[0] || null;
+        }
+        if (match) {
+          if (!node) node = String(match.node || '');
+          if (!Number.isFinite(port)) port = Number(match.port);
+          if (!modelName) modelName = String(match.model || '');
+        }
+      }
+    } catch (_) {
+      // ignore inference errors; we'll validate below
+    }
+
+    // Apply sensible defaults if still missing
+    if (!node) node = 'gpu01';
+    if (!/^gpu0[1-8]$/.test(node)) {
+      return respond.error(res, 'Invalid node. Must be one of gpu01-08.', 400);
+    }
+    if (!Number.isFinite(port)) port = 9000;
+
+    const baseUrl = `http://${node}:${port}`;
+
+    // If model name still unknown, attempt to fetch served models (OpenAI-compatible list)
+    if (!modelName) {
+      try {
+        const m = await axios.get(`${baseUrl}/v1/models`, { timeout: Math.max(2000, Math.floor(timeoutMs / 2)) });
+        if (m.data && Array.isArray(m.data.data) && m.data.data.length > 0) {
+          modelName = String(m.data.data[0].id || '');
+        }
+      } catch (_) {
+        // Fallback to placeholder; many vLLM builds ignore the model field
+        modelName = 'default';
+      }
+      if (!modelName) modelName = 'default';
+    }
+
+    // Call OpenAI-compatible chat completions endpoint on vLLM
+    const payload = {
+      model: modelName,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature
     };
 
-    res.status(200).json(response);
+    try {
+      const resp = await axios.post(`${baseUrl}/v1/chat/completions`, payload, { timeout: timeoutMs });
+
+      let answer = null;
+      if (resp.data && Array.isArray(resp.data.choices) && resp.data.choices.length > 0) {
+        const choice = resp.data.choices[0];
+        if (choice && choice.message && typeof choice.message.content === 'string') {
+          answer = choice.message.content;
+        } else if (typeof choice.text === 'string') {
+          // Some servers use `text` instead of `message.content`
+          answer = choice.text;
+        }
+      }
+
+      return respond.success(res, {
+        alive: true,
+        node,
+        port,
+        model: modelName,
+        prompt,
+        answer,
+        raw: resp.data
+      });
+    } catch (err) {
+      let errorMessage = err && err.message ? err.message : 'Unknown error';
+      let details = undefined;
+      if (err && err.response) {
+        details = err.response.data;
+        if (details && details.error) {
+          if (typeof details.error === 'string') errorMessage = details.error;
+          else if (details.error.message) errorMessage = details.error.message;
+        } else if (typeof details === 'string') {
+          errorMessage = details;
+        }
+      }
+
+      // Return a 200 with alive=false and captured error details to aid diagnosis
+      return respond.success(res, {
+        alive: false,
+        node,
+        port,
+        model: modelName,
+        prompt,
+        error: errorMessage,
+        details
+      });
+    }
   } catch (error) {
-    console.error('Error sending Hello world request:', error);
-    res.status(500).json({ error: 'Failed to send Hello world request.' });
+    return respond.error(res, error.message || 'Failed to send Hello world request', 500);
   }
 });
 
