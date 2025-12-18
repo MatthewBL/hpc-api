@@ -80,7 +80,7 @@ check:
 	@squeue
 
 log: 
-	@tail -f slurm-${RUNNING_JOB}.out
+	@tail -f logs/slurm-${RUNNING_JOB}.out
 
 stop:
 	@scancel ${RUNNING_JOB}

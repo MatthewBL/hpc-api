@@ -6,7 +6,7 @@ if [ ! -w "$slurmFile" ]; then
 fi
 
 echo "#!/bin/bash" >> "$slurmFile"
-SBATCH_LINE="#SBATCH --cpus-per-gpu=$4 --gpus=a40:$3 -t $5"
+SBATCH_LINE="#SBATCH --cpus-per-gpu=$4 --gpus=a40:$3 -t $5 --output=$PWD/logs/slurm-%j.out --error=$PWD/logs/slurm-%j.err"
 if [ -n "$6" ]; then
   SBATCH_LINE="$SBATCH_LINE --nodelist=$6"
 fi
@@ -15,6 +15,7 @@ cat vllm_serve.slurm_template >> "$slurmFile"
 echo "Temp file: $slurmFile"
 
 # Submit the job and capture sbatch output which includes the job id
+mkdir -p logs
 SUBMIT_OUT=$(sbatch "$slurmFile" "$1" "$2") || SUBMIT_OUT=""
 
 # Try to extract the job id from sbatch output ("Submitted batch job 12345")
