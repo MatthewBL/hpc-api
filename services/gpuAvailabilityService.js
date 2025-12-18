@@ -20,29 +20,27 @@ function readLastSnapshotChunks(filePath, tailSizeBytes = 512 * 1024) {
         const tail = buffer.toString('utf8');
         const lines = tail.split(/\r?\n/);
 
-        // Find the last header line in the tail
-        let headerIdx = -1;
+        // Find the index of the last timestamp line in the tail
+        let tsIdx = -1;
         for (let i = lines.length - 1; i >= 0; i--) {
-            if (HEADER_RE.test(lines[i])) { headerIdx = i; break; }
+            if (TIMESTAMP_RE.test((lines[i] || '').trim())) { tsIdx = i; break; }
         }
-        if (headerIdx === -1) {
-            // If no header found, try last timestamp and start from next line
-            let tsIdx = -1;
-            for (let i = lines.length - 1; i >= 0; i--) {
-                if (TIMESTAMP_RE.test(lines[i].trim())) { tsIdx = i; break; }
-            }
-            if (tsIdx === -1) return [];
-            headerIdx = tsIdx + 1;
-        }
+        if (tsIdx === -1) return [];
 
         const chunks = [];
-        for (let i = headerIdx + 1; i < lines.length; i++) {
-            const t = (lines[i] || '').trim();
-            if (!t) break; // stop at blank line
+        // Collect all lines after the timestamp until the next timestamp or EOF
+        for (let i = tsIdx + 1; i < lines.length; i++) {
+            const raw = lines[i] ?? '';
+            const t = raw.trim();
+            if (!t) continue; // skip blank
             if (TIMESTAMP_RE.test(t)) break; // next snapshot begins
-            // Support concatenated jobs on one physical line separated by '$'
-            const parts = t.split('$').map(p => p.trim()).filter(Boolean);
-            for (const part of parts) { chunks.push(part); }
+            // Split any concatenated jobs on '$' and gather job chunks
+            const parts = raw.split('$').map(p => p.trim()).filter(Boolean);
+            for (const part of parts) {
+                // Ignore pure header chunks without allocations
+                if (HEADER_RE.test(part)) continue;
+                chunks.push(part);
+            }
         }
         return chunks;
     } finally {
