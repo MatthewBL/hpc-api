@@ -14,7 +14,7 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000', // adjust default if your app uses another port
+        url: `http://localhost:${process.env.REMOTE_PORT || 3000}`,
       },
     ],
   },
