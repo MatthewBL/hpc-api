@@ -173,7 +173,7 @@ class Model {
   /**
    * Check whether the associated SLURM job should be auto-canceled.
    * If this model has a running job (running.job_id) and more than
-   * `thresholdSec` seconds have elapsed since `running.startTime`, and
+   * `thresholdMiliSec` milliseconds have elapsed since `running.startTime`, and
    * squeue reports the job state code as PD (pending), then this method
    * will issue `scancel <job_id>` and return { canceled: true }.
    *
@@ -181,10 +181,11 @@ class Model {
    * it does not mutate persistence stores. Callers may update stores after
    * a successful cancellation.
    *
-   * @param {number} [thresholdSec=30]
+   * @param {number} [thresholdMiliSec=30000] - threshold in milliseconds to consider canceling
    * @returns {Promise<{canceled: boolean, reason?: string, error?: string}>}
    */
-  async maybeAutoCancelPending(thresholdSec = 30) {
+  async maybeAutoCancelPending() {
+    const thresholdMiliSec = process.env.TIMEOUT_INSUFFICIENT_RESOURCES ? parseInt(process.env.TIMEOUT_INSUFFICIENT_RESOURCES, 10) : 30000;
     try {
       const jobId = this?.running?.job_id;
       const timeStr = this?.running?.time; // expected HH:MM:SS
@@ -211,7 +212,7 @@ class Model {
         const now = new Date();
         elapsedSec = Math.floor((now - start) / 1000);
       }
-      if (!Number.isFinite(elapsedSec) || elapsedSec <= Number(thresholdSec)) {
+      if (!Number.isFinite(elapsedSec) || elapsedSec <= Number(thresholdMiliSec) / 1000) {
         return { canceled: false, reason: 'under-threshold' };
       }
 
