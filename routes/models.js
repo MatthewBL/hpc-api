@@ -217,7 +217,7 @@ router.get('/', async (req, res) => {
           runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
         }
 
-        // With time computed, check for auto-cancel if pending > 30s
+        // With time computed, check for auto-cancel if pending > TIMEOUT_INSUFFICIENT_RESOURCES
         try {
           const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
           const cancelRes = await modelInst.maybeAutoCancelPending(30);
@@ -226,6 +226,19 @@ router.get('/', async (req, res) => {
             const re = await _deriveStateForModel(doc);
             const runningAfter = Model.defaultRunning();
             return Object.assign({}, doc, { state: re.state, running: runningAfter });
+          }
+        } catch {}
+
+        // If still "Setting up", enforce TIMEOUT_SETTING_UP to auto-cancel
+        try {
+          if (state === 'Setting up') {
+            const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
+            const cancelResSetup = await modelInst.maybeAutoCancelSettingUp();
+            if (cancelResSetup && cancelResSetup.canceled) {
+              const re = await _deriveStateForModel(doc);
+              const runningAfter = Model.defaultRunning();
+              return Object.assign({}, doc, { state: re.state, running: runningAfter });
+            }
           }
         } catch {}
 
@@ -487,6 +500,18 @@ router.get('/:id', async (req, res) => {
       }
     } catch {}
 
+    // If still "Setting up", enforce TIMEOUT_SETTING_UP to auto-cancel
+    try {
+      if (state === 'Setting up') {
+        const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
+        const cancelResSetup = await modelInst.maybeAutoCancelSettingUp();
+        if (cancelResSetup && cancelResSetup.canceled) {
+          const re = await _deriveStateForModel(doc);
+          return respond.success(res, { model: Object.assign({}, doc, { state: re.state, running: Model.defaultRunning() }) });
+        }
+      }
+    } catch {}
+
     return respond.success(res, { model: Object.assign({}, doc, { state, running: runningNormalized }) });
   } catch (error) {
     return respond.error(res, error.message || 'Failed to get model', 500);
@@ -564,6 +589,18 @@ router.get('/:id/state', async (req, res) => {
       if (cancelRes && cancelRes.canceled) {
         const re = await _deriveStateForModel(doc);
         return respond.success(res, { state: re.state, running: Model.defaultRunning() });
+      }
+    } catch {}
+
+    // If still "Setting up", enforce TIMEOUT_SETTING_UP to auto-cancel
+    try {
+      if (state === 'Setting up') {
+        const modelInst = Model.fromObject(Object.assign({}, doc, { running: runningNormalized }));
+        const cancelResSetup = await modelInst.maybeAutoCancelSettingUp();
+        if (cancelResSetup && cancelResSetup.canceled) {
+          const re = await _deriveStateForModel(doc);
+          return respond.success(res, { state: re.state, running: Model.defaultRunning() });
+        }
       }
     } catch {}
 

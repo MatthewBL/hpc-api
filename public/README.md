@@ -117,6 +117,7 @@ Works on all modern browsers:
 - Ensure the model is in "Stopped" state
 - Check that no other job is running for this model
 - Verify Slurm is available on the server
+- If a model stays in "Setting up" too long, it will be auto-canceled based on `TIMEOUT_SETTING_UP` in your `.env`.
 
 **Delete button disabled?**
 - Models can only be deleted when stopped

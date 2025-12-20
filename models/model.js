@@ -230,6 +230,61 @@ class Model {
       return { canceled: false, error: (err && err.message) ? err.message : String(err) };
     }
   }
+
+  /**
+   * Auto-cancel jobs stuck in "Setting up" beyond TIMEOUT_SETTING_UP.
+   *
+   * This mirrors `maybeAutoCancelPending`, but is intended for cases where
+   * the job has been submitted and is still in the "Setting up" state
+   * (which may include PD or RUNNING without startup markers) longer than
+   * the configured timeout.
+   *
+   * Note: Callers should only invoke this when the derived state is
+   * indeed "Setting up"; this method does not re-derive state itself.
+   *
+   * @returns {Promise<{canceled: boolean, reason?: string, error?: string}>}
+   */
+  async maybeAutoCancelSettingUp() {
+    const thresholdMiliSec = process.env.TIMEOUT_SETTING_UP ? parseInt(process.env.TIMEOUT_SETTING_UP, 10) : 1800000; // default 30 minutes
+    try {
+      const jobId = this?.running?.job_id;
+      const timeStr = this?.running?.time; // expected HH:MM:SS
+      const startIso = this?.running?.startTime;
+      if (!jobId) return { canceled: false, reason: 'no-job' };
+
+      // Prefer the already computed running.time (HH:MM:SS)
+      let elapsedSec = null;
+      if (typeof timeStr === 'string' && timeStr.includes(':')) {
+        const parts = timeStr.split(':').map(p => parseInt(p, 10));
+        if (parts.length === 3 && parts.every(n => Number.isFinite(n) && n >= 0)) {
+          const [hh, mm, ss] = parts;
+          elapsedSec = (hh * 3600) + (mm * 60) + ss;
+        }
+      }
+      // Fallback to startTime if time is not present
+      if (elapsedSec === null) {
+        if (!startIso || typeof startIso !== 'string' || startIso.length === 0) {
+          return { canceled: false, reason: 'no-time' };
+        }
+        const start = new Date(startIso);
+        if (Number.isNaN(start.getTime())) {
+          return { canceled: false, reason: 'invalid-start' };
+        }
+        const now = new Date();
+        elapsedSec = Math.floor((now - start) / 1000);
+      }
+      if (!Number.isFinite(elapsedSec) || elapsedSec <= Number(thresholdMiliSec) / 1000) {
+        return { canceled: false, reason: 'under-threshold' };
+      }
+
+      // We rely on caller's derived state being "Setting up".
+      // Cancel the job when over threshold.
+      await execAsync(`scancel ${jobId}`);
+      return { canceled: true };
+    } catch (err) {
+      return { canceled: false, error: (err && err.message) ? err.message : String(err) };
+    }
+  }
 }
 
 module.exports = Model;
