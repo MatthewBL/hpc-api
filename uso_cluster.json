@@ -1,0 +1,260 @@
+{
+  "Thu Dec 18 04:37:01 2025": {
+    "matbwyler": {
+      "a40": {
+        "61040": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        },
+        "61017": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        }
+      },
+      "a30": {
+        "61020": {
+          "gpu_number": 1,
+          "cpu": 4,
+          "mem": "8G",
+          "node": 1,
+          "billing": 4,
+          "state": "RUNNING"
+        },
+        "61013": {
+          "gpu_number": 1,
+          "cpu": 4,
+          "mem": "8G",
+          "node": 1,
+          "billing": 4,
+          "state": "RUNNING"
+        }
+      },
+      "a100": {
+        "61012": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "jesferrom": {
+      "a40": {
+        "60997": {
+          "gpu_number": 1,
+          "cpu": 8,
+          "mem": "8G",
+          "node": 1,
+          "billing": 8,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "pabramber": {
+      "a40": {
+        "60874": {
+          "gpu_number": 1,
+          "cpu": 24,
+          "mem": "16G",
+          "node": 1,
+          "billing": 24,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "jorgarcia": {
+      "a100": {
+        "60847": {
+          "gpu_number": 1,
+          "cpu": 8,
+          "mem": "8G",
+          "node": 1,
+          "billing": 8,
+          "state": "RUNNING"
+        }
+      }
+    }
+  },
+  "Thu Dec 18 04:38:01 2025": {
+    "matbwyler": {
+      "a40": {
+        "61040": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        },
+        "61017": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        }
+      },
+      "a30": {
+        "61020": {
+          "gpu_number": 1,
+          "cpu": 4,
+          "mem": "8G",
+          "node": 1,
+          "billing": 4,
+          "state": "RUNNING"
+        },
+        "61013": {
+          "gpu_number": 1,
+          "cpu": 4,
+          "mem": "8G",
+          "node": 1,
+          "billing": 4,
+          "state": "RUNNING"
+        }
+      },
+      "a100": {
+        "61012": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "jesferrom": {
+      "a40": {
+        "60997": {
+          "gpu_number": 1,
+          "cpu": 8,
+          "mem": "8G",
+          "node": 1,
+          "billing": 8,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "pabramber": {
+      "a40": {
+        "60874": {
+          "gpu_number": 1,
+          "cpu": 24,
+          "mem": "16G",
+          "node": 1,
+          "billing": 24,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "jorgarcia": {
+      "a100": {
+        "60847": {
+          "gpu_number": 1,
+          "cpu": 8,
+          "mem": "8G",
+          "node": 1,
+          "billing": 8,
+          "state": "RUNNING"
+        }
+      }
+    }
+  },
+  "Thu Dec 18 04:39:01 2025": {
+    "matbwyler": {
+      "a40": {
+        "61040": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        },
+        "61017": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        }
+      },
+      "a30": {
+        "61020": {
+          "gpu_number": 1,
+          "cpu": 4,
+          "mem": "8G",
+          "node": 1,
+          "billing": 4,
+          "state": "RUNNING"
+        },
+        "61013": {
+          "gpu_number": 1,
+          "cpu": 4,
+          "mem": "8G",
+          "node": 1,
+          "billing": 4,
+          "state": "RUNNING"
+        }
+      },
+      "a100": {
+        "61012": {
+          "gpu_number": 4,
+          "cpu": 32,
+          "mem": "64G",
+          "node": 1,
+          "billing": 32,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "jesferrom": {
+      "a40": {
+        "60997": {
+          "gpu_number": 1,
+          "cpu": 8,
+          "mem": "8G",
+          "node": 1,
+          "billing": 8,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "pabramber": {
+      "a40": {
+        "60874": {
+          "gpu_number": 1,
+          "cpu": 24,
+          "mem": "16G",
+          "node": 1,
+          "billing": 24,
+          "state": "RUNNING"
+        }
+      }
+    },
+    "jorgarcia": {
+      "a100": {
+        "60847": {
+          "gpu_number": 1,
+          "cpu": 8,
+          "mem": "8G",
+          "node": 1,
+          "billing": 8,
+          "state": "RUNNING"
+        }
+      }
+    }
+  }
+}
