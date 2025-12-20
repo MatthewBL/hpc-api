@@ -408,13 +408,13 @@
                 <input type="number" id="helloPortInput" class="form-input" style="width:120px;" value="9000" />
                 <label style="font-weight: 600; color: #2d3748;">Prompt:</label>
                 <input type="text" id="helloPromptInput" class="form-input" style="width:260px;" value="Hello world" placeholder="Enter a prompt" />
-                <button class="btn btn-success" onclick="app.triggerHelloWorld()">🌍 Hello World</button>
+                <button class="btn btn-success" onclick="app.triggerHelloWorld()">🧪 Test Prompt</button>
             </div>
             <button class="btn btn-primary" onclick="app.showCreateModal()">➕ Add Model</button>
             <button class="btn btn-secondary" onclick="app.loadModels()">🔄 Refresh</button>
             <button class="btn btn-warning" onclick="app.showHistoryModal()">📊 View History</button>
         </div>
-        <div id="helloWorldResult" class="models-grid" style="margin-top: 10px;"></div>
+        <div id="promptTestResult" class="models-grid" style="margin-top: 10px;"></div>
 
         <div id="gpuAvailability" class="models-grid"></div>
 
@@ -1050,8 +1050,8 @@
                 const node = document.getElementById('helloNodeSelect').value || 'gpu01';
                 const portVal = parseInt(document.getElementById('helloPortInput').value) || 9000;
                 const promptVal = (document.getElementById('helloPromptInput')?.value || 'Hello world');
-                const url = `${this.apiBase}/hello-world?node=${encodeURIComponent(node)}&port=${encodeURIComponent(portVal)}&prompt=${encodeURIComponent(promptVal)}`;
-                const resultBox = document.getElementById('helloWorldResult');
+                const url = `${this.apiBase}/test-prompt?node=${encodeURIComponent(node)}&port=${encodeURIComponent(portVal)}&prompt=${encodeURIComponent(promptVal)}`;
+                const resultBox = document.getElementById('promptTestResult');
                 resultBox.innerHTML = `<div class="loading">Sending prompt: ${promptVal.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
                 try {
                     const resp = await fetch(url);
@@ -1062,7 +1062,7 @@
                     resultBox.innerHTML = `
                         <div class="model-card" style="max-width: 600px;">
                             <div class="model-header">
-                                <div class="model-id">Hello World → ${node}:${portVal}</div>
+                                <div class="model-id">Prompt Test → ${node}:${portVal}</div>
                                 <div class="model-status ${statusClass}">${alive ? 'ALIVE' : 'ERROR'}</div>
                             </div>
                             <div class="model-info">
@@ -1073,7 +1073,7 @@
                         </div>
                     `;
                 } catch (error) {
-                    resultBox.innerHTML = `<div class="model-card" style="max-width: 600px;"><div class="model-header"><div class="model-id">Hello World → ${node}:${portVal}</div><div class="model-status status-stopped">ERROR</div></div><div class="model-info"><div class="info-row"><span class="info-label">Prompt:</span> <span class="info-value">${promptVal.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div><div class="info-row"><span class="info-label">Error:</span> <span class="info-value">${error.message}</span></div></div></div>`;
+                    resultBox.innerHTML = `<div class="model-card" style="max-width: 600px;"><div class="model-header"><div class="model-id">Prompt Test → ${node}:${portVal}</div><div class="model-status status-stopped">ERROR</div></div><div class="model-info"><div class="info-row"><span class="info-label">Prompt:</span> <span class="info-value">${promptVal.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div><div class="info-row"><span class="info-label">Error:</span> <span class="info-value">${error.message}</span></div></div></div>`;
                 }
             },
 

@@ -255,11 +255,11 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /api/models/hello-world
+ * GET /api/models/test-prompt
  *
- * Sends a small prompt (default: "Hello world") to the vLLM server running on a GPU node
- * and returns the model's answer. If the request fails, returns the error details to
- * diagnose whether the LLM is alive.
+ * Tests a prompt against the LLM running on a GPU node (vLLM server)
+ * and returns the model's answer. If the request fails, returns error details
+ * to diagnose whether the LLM endpoint is alive.
  *
  * Query params:
  * - node: gpu01..gpu08 (optional; if missing, tries first running job)
@@ -269,7 +269,7 @@ router.get('/', async (req, res) => {
  * - timeoutMs: request timeout in ms (optional; default: 5000)
  * - temperature, max_tokens: generation controls (optional)
  */
-router.get('/hello-world', async (req, res) => {
+router.get('/test-prompt', async (req, res) => {
   try {
     const prompt = String(req.query.prompt || 'Hello world');
     const temperature = req.query.temperature !== undefined ? Number(req.query.temperature) : 0;
@@ -385,7 +385,7 @@ router.get('/hello-world', async (req, res) => {
       });
     }
   } catch (error) {
-    return respond.error(res, error.message || 'Failed to send Hello world request', 500);
+    return respond.error(res, error.message || 'Failed to test prompt', 500);
   }
 });
 
