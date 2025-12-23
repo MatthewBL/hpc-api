@@ -13,6 +13,14 @@ app.use(cors());
 app.use(morgan('combined'));
 app.use(express.json());
 
+// Expose selected env vars to the client
+app.get('/env.js', (req, res) => {
+  const payload = {
+    LOCAL_PORT: process.env.LOCAL_PORT || ''
+  };
+  res.type('application/javascript').send(`window.__ENV__ = ${JSON.stringify(payload)};`);
+});
+
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
