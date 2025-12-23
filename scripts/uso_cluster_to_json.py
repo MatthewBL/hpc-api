@@ -30,6 +30,7 @@ Output JSON structure:
 Notes:
 - Only jobs with a typed GPU in TRES (keys like "gres/gpu:a30", "gres/gpu:a40", "gres/gpu:a100") are included.
 - Jobs without a typed GPU are skipped (can be enabled via flag in the future).
+ - Use the `--last` flag to only include the latest timestamp block without parsing the entire file.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional
 
@@ -155,6 +157,109 @@ def parse_usage_file(path: str) -> Dict[str, Any]:
     return data
 
 
+def parse_usage_lines(lines) -> Dict[str, Any]:
+    """Parse an iterable of lines into the nested structure.
+
+    This mirrors `parse_usage_file` but consumes provided lines.
+    """
+    data: Dict[str, Any] = {}
+    current_ts: Optional[str] = None
+
+    for raw_line in lines:
+        line = raw_line.rstrip('\n')
+
+        ts = is_timestamp_line(line)
+        if ts is not None:
+            current_ts = ts
+            ensure_nested(data, current_ts)
+            continue
+
+        sline = line.strip()
+        if not sline:
+            continue
+        if sline.startswith('JOBID'):
+            continue
+
+        m = RECORD_RE.match(line)
+        if not m:
+            continue
+        if not current_ts:
+            continue
+
+        jobid = m.group('jobid')
+        user = m.group('user')
+        tres = m.group('tres').strip()
+        state = m.group('state').strip()
+
+        tres_dict = parse_tres_alloc(tres)
+        typed_gpu_entries = [(k.split(':', 1)[1], v) for k, v in tres_dict.items() if k.startswith('gres/gpu:') and ':' in k]
+        if not typed_gpu_entries:
+            continue
+
+        cpu = _safe_int(tres_dict.get('cpu'))
+        mem = tres_dict.get('mem')
+        node = _safe_int(tres_dict.get('node'))
+        billing = _safe_int(tres_dict.get('billing'))
+
+        for gpu_type, gpu_val in typed_gpu_entries:
+            gpu_number = _safe_int(gpu_val)
+            leaf = ensure_nested(data, current_ts, user, gpu_type)
+            leaf[jobid] = {
+                'gpu_number': gpu_number,
+                'cpu': cpu,
+                'mem': mem,
+                'node': node,
+                'billing': billing,
+                'state': state,
+            }
+
+    return data
+
+
+def parse_last_usage_file(path: str) -> Dict[str, Any]:
+    """Parse only the latest timestamp block from the file efficiently.
+
+    Strategy:
+    - Read a chunk from the end of the file (increasing sizes if needed).
+    - Find the last timestamp line within that tail chunk.
+    - Parse lines starting at that timestamp to the file end.
+    """
+    filesize = os.path.getsize(path)
+    if filesize == 0:
+        return {}
+
+    # Progressive tail sizes (4MB → 16MB → 64MB → full file)
+    tail_sizes = [4 * 1024 * 1024, 16 * 1024 * 1024, 64 * 1024 * 1024, filesize]
+
+    with open(path, 'rb') as fb:
+        for tail in tail_sizes:
+            start = max(0, filesize - tail)
+            fb.seek(start)
+            data = fb.read(filesize - start)
+            try:
+                text = data.decode('utf-8')
+            except UnicodeDecodeError:
+                # Fallback to ignoring decode errors
+                text = data.decode('utf-8', errors='ignore')
+
+            lines = text.splitlines()
+            last_ts_idx: Optional[int] = None
+            # Walk from end to find the last timestamp line within this chunk
+            for i in range(len(lines) - 1, -1, -1):
+                ts = is_timestamp_line(lines[i])
+                if ts is not None:
+                    last_ts_idx = i
+                    break
+
+            if last_ts_idx is not None:
+                # Parse from the found timestamp to the end of the file
+                tail_lines = lines[last_ts_idx:]
+                return parse_usage_lines(tail_lines)
+
+    # Fallback: parse entire file (should rarely happen)
+    return parse_usage_file(path)
+
+
 def _safe_int(val: Optional[str]) -> Optional[int]:
     if val is None:
         return None
@@ -176,9 +281,13 @@ def main() -> None:
     parser.add_argument('--input', '-i', required=True, help='Path to uso_cluster.txt')
     parser.add_argument('--output', '-o', required=True, help='Path to write JSON output')
     parser.add_argument('--indent', type=int, default=2, help='JSON indentation (default: 2)')
+    parser.add_argument('--last', action='store_true', help='Only include the latest timestamp block for faster processing')
     args = parser.parse_args()
 
-    result = parse_usage_file(args.input)
+    if args.last:
+        result = parse_last_usage_file(args.input)
+    else:
+        result = parse_usage_file(args.input)
     with open(args.output, 'w', encoding='utf-8') as out:
         json.dump(result, out, indent=args.indent, ensure_ascii=False)
 

@@ -471,6 +471,53 @@ router.get('/status', async (req, res) => {
 });
 
 /**
+ * GET /api/models/status/last - generate and return latest cluster usage JSON
+ *
+ * Runs the Python script scripts/uso_cluster_to_json.py with the `--last` flag
+ * to convert only the latest timestamp block from uso_cluster.txt into
+ * uso_cluster_last.json, then returns the JSON content.
+ */
+router.get('/status/last', async (req, res) => {
+  try {
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'uso_cluster_to_json.py');
+    const inputPath = path.join(__dirname, '../../../../../', 'uso_cluster.txt');
+    const outputPath = path.join(__dirname, '..', 'uso_cluster_last.json');
+
+    // Determine python executable cross-platform
+    const py = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+
+    // Spawn the Python process with --last
+    const args = [scriptPath, '--input', inputPath, '--output', outputPath, '--last'];
+
+    const runScript = () => new Promise((resolve, reject) => {
+      const p = spawn(py, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      let stderr = '';
+      p.stderr.on('data', (d) => { stderr += d.toString(); });
+      p.on('error', (err) => reject(err));
+      p.on('close', (code) => {
+        if (code !== 0) return reject(new Error(stderr || `Python exited with code ${code}`));
+        return resolve(true);
+      });
+    });
+
+    await runScript();
+
+    // Read the generated JSON file
+    let content = {};
+    try {
+      const raw = fs.readFileSync(outputPath, 'utf8');
+      content = JSON.parse(raw);
+    } catch (readErr) {
+      return respond.error(res, readErr.message || 'Failed to read generated JSON', 500);
+    }
+
+    return respond.success(res, { content });
+  } catch (error) {
+    return respond.error(res, error.message || 'Failed to generate latest status JSON', 500);
+  }
+});
+
+/**
  * GET /api/models/:id - get model info including derived state
  *
  * @openapi
