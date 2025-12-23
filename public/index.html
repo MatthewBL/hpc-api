@@ -564,7 +564,9 @@
             editingModelId: null,
 
             init() {
-                this.apiBase = 'http://localhost:3000/api/models';
+                const isFile = window.location.protocol === 'file:' || window.location.origin === 'null';
+                const origin = isFile ? 'http://localhost:8080' : window.location.origin;
+                this.apiBase = `${origin}/api/models`;
                 this.loadModels();
                 // Initial GPU availability load happens on DOMContentLoaded below
                 
