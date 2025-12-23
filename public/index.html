@@ -390,7 +390,7 @@
         <div class="action-bar">
             <div class="api-config">
                 <label style="font-weight: 600; color: #2d3748;">API URL:</label>
-                <input type="text" id="apiBaseUrl" placeholder="e.g., http://localhost:3000/api/models" />
+                <input type="text" id="apiBaseUrl" placeholder="e.g., http://localhost:8080/api/models" />
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
                 <label style="font-weight: 600; color: #2d3748;">Node:</label>
@@ -586,7 +586,15 @@
 
                 // Update API base when changed
                 document.getElementById('apiBaseUrl').addEventListener('change', (e) => {
-                    this.apiBase = e.target.value;
+                    let val = (e.target.value || '').trim();
+                    if (val) {
+                        val = val.replace(/\/+$/, '');
+                        if (!/\/api\/models\/?$/.test(val)) {
+                            val = `${val}/api/models`;
+                        }
+                        this.apiBase = val;
+                        e.target.value = this.apiBase;
+                    }
                     this.loadModels();
                     this.loadGpuAvailability();
                 });
@@ -611,7 +619,6 @@
             },
 
             async loadModels() {
-                this.apiBase = document.getElementById('apiBaseUrl').value;
                 const container = document.getElementById('modelsContainer');
                 const loading = document.getElementById('loadingState');
                 const empty = document.getElementById('emptyState');
