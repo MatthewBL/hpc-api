@@ -214,6 +214,22 @@ router.get('/', async (req, res) => {
         if (job) {
           if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
           if (!runningNormalized.job_id) runningNormalized.job_id = String(job._id);
+          // If startTime still missing, derive from squeue submit time (%V) and persist to jobStore
+          if (!runningNormalized.startTime) {
+            try {
+              const { stdout: submitOut = '' } = await execAsync(`squeue -j ${job._id} --noheader -o "%V"`);
+              const submitStr = String(submitOut || '').trim();
+              if (submitStr && submitStr.toLowerCase() !== 'n/a') {
+                const submitDate = new Date(submitStr);
+                if (!Number.isNaN(submitDate.getTime())) {
+                  runningNormalized.startTime = submitDate.toISOString();
+                  try {
+                    await jobStore.addJob(job._id, Object.assign({}, job, { startTime: runningNormalized.startTime }));
+                  } catch {}
+                }
+              }
+            } catch {}
+          }
           runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
         }
 
@@ -488,6 +504,22 @@ router.get('/:id', async (req, res) => {
     if (job) {
       if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
       if (!runningNormalized.job_id) runningNormalized.job_id = String(job._id);
+      // If startTime still missing, derive from squeue submit time and persist
+      if (!runningNormalized.startTime) {
+        try {
+          const { stdout: submitOut = '' } = await execAsync(`squeue -j ${job._id} --noheader -o "%V"`);
+          const submitStr = String(submitOut || '').trim();
+          if (submitStr && submitStr.toLowerCase() !== 'n/a') {
+            const submitDate = new Date(submitStr);
+            if (!Number.isNaN(submitDate.getTime())) {
+              runningNormalized.startTime = submitDate.toISOString();
+              try {
+                await jobStore.addJob(job._id, Object.assign({}, job, { startTime: runningNormalized.startTime }));
+              } catch {}
+            }
+          }
+        } catch {}
+      }
       runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
     }
     // Auto-cancel now that time is available
@@ -580,6 +612,22 @@ router.get('/:id/state', async (req, res) => {
     if (job) {
       if (!runningNormalized.startTime && job.startTime) runningNormalized.startTime = job.startTime;
       if (!runningNormalized.job_id) runningNormalized.job_id = String(job._id);
+      // If startTime still missing, derive from squeue submit time and persist
+      if (!runningNormalized.startTime) {
+        try {
+          const { stdout: submitOut = '' } = await execAsync(`squeue -j ${job._id} --noheader -o "%V"`);
+          const submitStr = String(submitOut || '').trim();
+          if (submitStr && submitStr.toLowerCase() !== 'n/a') {
+            const submitDate = new Date(submitStr);
+            if (!Number.isNaN(submitDate.getTime())) {
+              runningNormalized.startTime = submitDate.toISOString();
+              try {
+                await jobStore.addJob(job._id, Object.assign({}, job, { startTime: runningNormalized.startTime }));
+              } catch {}
+            }
+          }
+        } catch {}
+      }
       runningNormalized.time = runningNormalized.startTime ? _formatElapsed(runningNormalized.startTime) : null;
     }
     // Auto-cancel now that time is available
