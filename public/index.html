@@ -388,10 +388,6 @@
         </header>
 
         <div class="action-bar">
-            <div class="api-config">
-                <label style="font-weight: 600; color: #2d3748;">API URL:</label>
-                <input type="text" id="apiBaseUrl" placeholder="e.g., http://localhost:8080/api/models" />
-            </div>
             <div style="display:flex; gap:10px; align-items:center;">
                 <label style="font-weight: 600; color: #2d3748;">Node:</label>
                 <select id="helloNodeSelect" class="form-input" style="width:auto;">
@@ -562,20 +558,13 @@
         </div>
     </div>
 
-    <script src="/env.js"></script>
     <script>
         const app = {
             apiBase: '',
             editingModelId: null,
 
             init() {
-                const envPort = (window.__ENV__ && window.__ENV__.LOCAL_PORT) ? String(window.__ENV__.LOCAL_PORT) : '';
-                const defaultBase = `${location.origin}/api/models`;
-                const envBase = envPort ? `http://localhost:${envPort}/api/models` : '';
-                // Prefer .env LOCAL_PORT if present; else same-origin
-                this.apiBase = envBase || defaultBase;
-                const apiInput = document.getElementById('apiBaseUrl');
-                if (apiInput) apiInput.value = this.apiBase;
+                this.apiBase = 'http://localhost:8080/api/models';
                 this.loadModels();
                 // Initial GPU availability load happens on DOMContentLoaded below
                 
@@ -583,21 +572,6 @@
                 setInterval(() => this.loadModels(), 5000);
                 // Auto-refresh GPU availability every 20 seconds
                 setInterval(() => this.loadGpuAvailability(), 20000);
-
-                // Update API base when changed
-                document.getElementById('apiBaseUrl').addEventListener('change', (e) => {
-                    let val = (e.target.value || '').trim();
-                    if (val) {
-                        val = val.replace(/\/+$/, '');
-                        if (!/\/api\/models\/?$/.test(val)) {
-                            val = `${val}/api/models`;
-                        }
-                        this.apiBase = val;
-                        e.target.value = this.apiBase;
-                    }
-                    this.loadModels();
-                    this.loadGpuAvailability();
-                });
 
                 // Toggle node override inputs
                 const useNode = document.getElementById('useSpecificNode');
