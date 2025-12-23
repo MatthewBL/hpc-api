@@ -224,7 +224,9 @@ class Model {
       }
 
       // Cancel the job
+      console.warn(`[Model ${this.id}] Auto-canceling job ${jobId} due to insufficient resources timeout after ${elapsedSec}s (threshold ${Math.floor(thresholdMiliSec / 1000)}s). State=PD`);
       await execAsync(`scancel ${jobId}`);
+      console.info(`[Model ${this.id}] Job ${jobId} canceled due to insufficient resources timeout`);
       return { canceled: true };
     } catch (err) {
       return { canceled: false, error: (err && err.message) ? err.message : String(err) };
@@ -279,7 +281,9 @@ class Model {
 
       // We rely on caller's derived state being "Setting up".
       // Cancel the job when over threshold.
+      console.warn(`[Model ${this.id}] Auto-canceling job ${jobId} due to setting up timeout after ${elapsedSec}s (threshold ${Math.floor(thresholdMiliSec / 1000)}s).`);
       await execAsync(`scancel ${jobId}`);
+      console.info(`[Model ${this.id}] Job ${jobId} canceled due to setting up timeout`);
       return { canceled: true };
     } catch (err) {
       return { canceled: false, error: (err && err.message) ? err.message : String(err) };
