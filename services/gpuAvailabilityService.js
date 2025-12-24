@@ -5,7 +5,6 @@ const { spawnSync } = require('child_process');
 // Paths within the workspace
 const ROOT_DIR = path.join(__dirname, '..');
 const TXT_PATH = path.join(ROOT_DIR, 'uso_cluster.txt');
-const JSON_PATH = path.join(ROOT_DIR, 'uso_cluster.json');
 const LAST_JSON_PATH = path.join(ROOT_DIR, 'uso_cluster_last.json');
 const NODE_CONF_PATH = path.join(ROOT_DIR, 'node_configuration.json');
 const PY_SCRIPT_PATH = path.join(ROOT_DIR, 'scripts', 'uso_cluster_to_json.py');
@@ -215,22 +214,14 @@ function tryGenerateJson(preferLast = false) {
 }
 
 function readJsonWithTroubleshooter() {
-  // Prefer existing full JSON
-  if (fs.existsSync(JSON_PATH)) {
+  // Prefer existing last snapshot JSON only
+  if (fs.existsSync(LAST_JSON_PATH)) {
     try {
-      const raw = fs.readFileSync(JSON_PATH, 'utf8');
-      return { obj: JSON.parse(raw), source: 'uso_cluster.json' };
+      const raw = fs.readFileSync(LAST_JSON_PATH, 'utf8');
+      return { obj: JSON.parse(raw), source: 'uso_cluster_last.json' };
     } catch (_) { /* fall through */ }
   }
-  // Try generating full JSON
-  const genFull = tryGenerateJson(false);
-  if (genFull && fs.existsSync(genFull)) {
-    try {
-      const raw = fs.readFileSync(genFull, 'utf8');
-      return { obj: JSON.parse(raw), source: path.basename(genFull) };
-    } catch (_) { /* fall through */ }
-  }
-  // Try generating last snapshot JSON for speed
+  // Try generating last snapshot JSON
   const genLast = tryGenerateJson(true);
   if (genLast && fs.existsSync(genLast)) {
     try {
@@ -246,7 +237,7 @@ function readJsonWithTroubleshooter() {
       return { obj: null, source: 'uso_cluster.txt (fallback)', usedFallback: used };
     } catch (_) { /* fall through */ }
   }
-  throw new Error('Unable to read or generate cluster usage JSON. Ensure uso_cluster.txt exists and Python is available.');
+  throw new Error('Unable to read or generate uso_cluster_last.json. Ensure uso_cluster.txt exists and Python is available.');
 }
 
 // Legacy TXT parser used as fallback only
@@ -278,7 +269,7 @@ function getLastBlockGPUCounts(fileContent) {
 }
 
 /**
- * Returns GPU availability summary using uso_cluster JSON and node configuration.
+ * Returns GPU availability summary using uso_cluster_last.json and node configuration.
  * Troubleshoots missing JSON by attempting generation from TXT, falling back to TXT parse.
  * @returns {{A30:{total:number, used:number, available:number}, A40:{total:number, used:number, available:number}, A100:{total:number, used:number, available:number}, timestamp:string|null, source:string}}
  */
