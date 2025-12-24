@@ -2,12 +2,12 @@
 Convert HPC cluster usage text log to nested JSON.
 
 Input format (repeating per minute):
-  <timestamp line> e.g. "Thu Dec 18 04:37:01 2025"
-  JOBID               USER                TRES_ALLOC                                                      STATE
+    <timestamp line> e.g. "Thu Dec 18 04:37:01 2025"
+    JOBID               USER                TRES_ALLOC                                                      NODELIST                        STATE
   <records...>
 
 Each record line example:
-  61040               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      RUNNING
+    61040               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      gpu06                           RUNNING
 
 Output JSON structure:
 {
@@ -20,6 +20,7 @@ Output JSON structure:
           "mem": <str>,
           "node": <int>,
           "billing": <int>,
+                        "nodelist": <str|null>,
           "state": <str>
         }
       }
@@ -62,7 +63,15 @@ def is_timestamp_line(line: str) -> Optional[str]:
         return None
 
 
-RECORD_RE = re.compile(r"^\s*(?P<jobid>\d+)\s+(?P<user>\S+)\s+(?P<tres>.*?)\s+(?P<state>[A-Z]+)\s*$")
+# Record lines have columns: JOBID USER TRES_ALLOC NODELIST STATE
+# NODELIST may be empty for PENDING jobs; capture it as optional non-whitespace.
+RECORD_RE = re.compile(
+    r"^\s*(?P<jobid>\d+)\s+"  # JOBID
+    r"(?P<user>\S+)\s+"        # USER
+    r"(?P<tres>.*?)\s+"         # TRES_ALLOC (greedy up to next column)
+    r"(?P<nodelist>\S*)\s+"     # NODELIST (may be empty)
+    r"(?P<state>[A-Z]+)\s*$"     # STATE
+)
 
 
 def parse_tres_alloc(tres: str) -> Dict[str, str]:
@@ -125,6 +134,7 @@ def parse_usage_file(path: str) -> Dict[str, Any]:
             jobid = m.group('jobid')
             user = m.group('user')
             tres = m.group('tres').strip()
+            nodelist = m.group('nodelist').strip()
             state = m.group('state').strip()
 
             tres_dict = parse_tres_alloc(tres)
@@ -151,6 +161,7 @@ def parse_usage_file(path: str) -> Dict[str, Any]:
                     'mem': mem,
                     'node': node,
                     'billing': billing,
+                    'nodelist': (nodelist if nodelist else None),
                     'state': state,
                 }
 
@@ -189,6 +200,7 @@ def parse_usage_lines(lines) -> Dict[str, Any]:
         jobid = m.group('jobid')
         user = m.group('user')
         tres = m.group('tres').strip()
+        nodelist = m.group('nodelist').strip()
         state = m.group('state').strip()
 
         tres_dict = parse_tres_alloc(tres)
@@ -210,6 +222,7 @@ def parse_usage_lines(lines) -> Dict[str, Any]:
                 'mem': mem,
                 'node': node,
                 'billing': billing,
+                'nodelist': (nodelist if nodelist else None),
                 'state': state,
             }
 

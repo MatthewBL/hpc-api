@@ -1,33 +1,60 @@
-Thu Dec 18 04:37:01 2025
-JOBID               USER                TRES_ALLOC                                                      STATE
-61061               matbwyler           cpu=1,mem=2G,node=1,billing=1                                   RUNNING
-61040               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      RUNNING
-61020               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         RUNNING
-61017               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      RUNNING
-61013               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         RUNNING
-61012               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a100=4     RUNNING
-60997               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         RUNNING
-60874               pabramber           cpu=24,mem=16G,node=1,billing=24,gres/gpu=1,gres/gpu:a40=1      RUNNING
-60847               jorgarcia           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a100=1        RUNNING
-Thu Dec 18 04:38:01 2025
-JOBID               USER                TRES_ALLOC                                                      STATE
-61061               matbwyler           cpu=1,mem=2G,node=1,billing=1                                   RUNNING
-61040               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      RUNNING
-61020               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         RUNNING
-61017               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      RUNNING
-61013               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         RUNNING
-61012               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a100=4     RUNNING
-60997               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         RUNNING
-60874               pabramber           cpu=24,mem=16G,node=1,billing=24,gres/gpu=1,gres/gpu:a40=1      RUNNING
-60847               jorgarcia           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a100=1        RUNNING
-Thu Dec 18 04:39:01 2025
-JOBID               USER                TRES_ALLOC                                                      STATE
-61061               matbwyler           cpu=1,mem=2G,node=1,billing=1                                   RUNNING
-61040               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      RUNNING
-61020               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         RUNNING
-61017               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      RUNNING
-61013               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         RUNNING
-61012               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a100=4     RUNNING
-60997               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         RUNNING
-60874               pabramber           cpu=24,mem=16G,node=1,billing=24,gres/gpu=1,gres/gpu:a40=1      RUNNING
-60847               jorgarcia           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a100=1        RUNNING
+Wed Dec 24 14:57:01 2025
+JOBID               USER                TRES_ALLOC                                                      NODELIST                        STATE
+61100               JKP6679             cpu=32,mem=64G,node=2,billing=32,gres/gpu=4,gres/gpu:a40=4                                      PENDING
+61182               matbwyler           cpu=1,mem=2G,node=1,billing=1                                                                   PENDING
+61178               josnunpor1          cpu=125,mem=400G,node=1,billing=125                             c08                             RUNNING
+61175               antbelcas           cpu=70,mem=400G,node=1,billing=70                               c07                             RUNNING
+61174               antbelcas           cpu=70,mem=400G,node=1,billing=70                               c06                             RUNNING
+61168               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61167               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61166               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61165               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu04                           RUNNING
+61117               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61115               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61116               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61095               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61084               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      gpu05                           RUNNING
+61083               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a100=4     gpu08                           RUNNING
+61082               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      gpu06                           RUNNING
+60874               pabramber           cpu=24,mem=16G,node=1,billing=24,gres/gpu=1,gres/gpu:a40=1      gpu04                           RUNNING
+60847               jorgarcia           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a100=1        gpu07                           RUNNING
+Wed Dec 24 14:58:01 2025
+JOBID               USER                TRES_ALLOC                                                      NODELIST                        STATE
+61100               JKP6679             cpu=32,mem=64G,node=2,billing=32,gres/gpu=4,gres/gpu:a40=4                                      PENDING
+61182               matbwyler           cpu=1,mem=2G,node=1,billing=1                                   c03                             RUNNING
+61178               josnunpor1          cpu=125,mem=400G,node=1,billing=125                             c08                             RUNNING
+61175               antbelcas           cpu=70,mem=400G,node=1,billing=70                               c07                             RUNNING
+61174               antbelcas           cpu=70,mem=400G,node=1,billing=70                               c06                             RUNNING
+61168               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61167               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61166               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61165               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu04                           RUNNING
+61117               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61115               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61116               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61095               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61084               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      gpu05                           RUNNING
+61083               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a100=4     gpu08                           RUNNING
+61082               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      gpu06                           RUNNING
+60874               pabramber           cpu=24,mem=16G,node=1,billing=24,gres/gpu=1,gres/gpu:a40=1      gpu04                           RUNNING
+60847               jorgarcia           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a100=1        gpu07                           RUNNING
+Wed Dec 24 14:59:01 2025
+JOBID               USER                TRES_ALLOC                                                      NODELIST                        STATE
+61100               JKP6679             cpu=32,mem=64G,node=2,billing=32,gres/gpu=4,gres/gpu:a40=4                                      PENDING
+61182               matbwyler           cpu=1,mem=2G,node=1,billing=1                                   c03                             RUNNING
+61178               josnunpor1          cpu=125,mem=400G,node=1,billing=125                             c08                             RUNNING
+61175               antbelcas           cpu=70,mem=400G,node=1,billing=70                               c07                             RUNNING
+61174               antbelcas           cpu=70,mem=400G,node=1,billing=70                               c06                             RUNNING
+61168               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61167               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61166               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61165               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu04                           RUNNING
+61117               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61115               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61116               matbwyler           cpu=4,mem=8G,node=1,billing=4,gres/gpu=1,gres/gpu:a30=1         gpu02                           RUNNING
+61095               jesferrom           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a40=1         gpu03                           RUNNING
+61084               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      gpu05                           RUNNING
+61083               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a100=4     gpu08                           RUNNING
+61082               matbwyler           cpu=32,mem=64G,node=1,billing=32,gres/gpu=4,gres/gpu:a40=4      gpu06                           RUNNING
+60874               pabramber           cpu=24,mem=16G,node=1,billing=24,gres/gpu=1,gres/gpu:a40=1      gpu04                           RUNNING
+60847               jorgarcia           cpu=8,mem=8G,node=1,billing=8,gres/gpu=1,gres/gpu:a100=1        gpu07                           RUNNING
