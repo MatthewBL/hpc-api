@@ -20,4 +20,5 @@ vllm serve "$1" \
   --max-num-batched-tokens 131072 \
   --gpu-memory-utilization 0.95 \
   --chat-template ./template.mustache \
+  --trust-remote-code \
   $EXTRA_ARGS
