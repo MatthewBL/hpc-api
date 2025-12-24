@@ -108,7 +108,9 @@ function computeUsageFromJson(jsonObj) {
       for (const jid of Object.keys(jobs)) {
         const rec = jobs[jid];
         const n = Number(rec && rec.gpu_number != null ? rec.gpu_number : 0);
-        if (Number.isFinite(n) && n > 0) used[norm] += n;
+        const state = (rec && rec.state ? String(rec.state) : '').toUpperCase();
+        // Only count RUNNING jobs; ignore PENDING and other states
+        if (state === 'RUNNING' && Number.isFinite(n) && n > 0) used[norm] += n;
       }
     }
   }
@@ -172,8 +174,10 @@ function computeUsageByNodeFromJson(jsonObj) {
       for (const jid of Object.keys(jobs)) {
         const rec = jobs[jid];
         const n = Number(rec && rec.gpu_number != null ? rec.gpu_number : 0);
+        const state = (rec && rec.state ? String(rec.state) : '').toUpperCase();
         const nl = rec && rec.nodelist ? String(rec.nodelist).trim() : '';
-        if (!Number.isFinite(n) || n <= 0 || !nl) continue;
+        // Only count RUNNING jobs with a node assignment
+        if (state !== 'RUNNING' || !Number.isFinite(n) || n <= 0 || !nl) continue;
         const nodes = expandNodelist(nl);
         const target = nodes.length > 0 ? nodes[0] : null;
         if (!target) continue;

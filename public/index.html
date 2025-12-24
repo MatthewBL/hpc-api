@@ -1082,35 +1082,46 @@
                     if (!response.ok) throw new Error('Failed to fetch GPU availability');
 
                     const payload = await response.json();
-                    const usage = (payload && payload.data) || {};
-                    const a30 = Number.isFinite(usage.A30) ? usage.A30 : 0;
-                    const a40 = Number.isFinite(usage.A40) ? usage.A40 : 0;
-                    const a100 = Number.isFinite(usage.A100) ? usage.A100 : 0;
+                    if (!payload || payload.success !== true || !payload.data) {
+                        throw new Error('Unexpected GPU availability payload');
+                    }
 
-                    const html = `
-                        <div class="model-card" style="max-width: 420px;">
-                            <div class="model-header">
-                                <div class="model-id">GPU Availability</div>
-                                <div class="model-status status-running">LIVE</div>
-                            </div>
-                            <div class="model-info">
-                                <div class="info-row">
-                                    <span class="info-label">A30:</span>
-                                    <span class="info-value">${a30}/4</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">A40:</span>
-                                    <span class="info-value">${a40}/16</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">A100:</span>
-                                    <span class="info-value">${a100}/8</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                    const usage = payload.data;
+                    const types = ['A30', 'A40', 'A100'];
+                    const byNode = usage.byNode || { A30: {}, A40: {}, A100: {} };
 
-                    container.innerHTML = html;
+                    const cards = types.map((t) => {
+                        const summary = usage[t] || { total: 0, used: 0, available: 0 };
+                        const nodes = byNode[t] || {};
+                        const nodeRows = Object.keys(nodes)
+                            .sort()
+                            .map((node) => {
+                                const n = nodes[node] || { total: 0, used: 0, available: 0 };
+                                return `
+                                    <div class="info-row">
+                                        <span class="info-label">${node}:</span>
+                                        <span class="info-value">${n.used}${Number.isFinite(n.total) ? ` / ${n.total}` : ''}</span>
+                                    </div>
+                                `;
+                            })
+                            .join('');
+
+                        return `
+                            <div class="model-card">
+                                <div class="model-header">
+                                    <div class="model-id">${t} GPUs</div>
+                                    <div class="model-status ${summary.available > 0 ? 'status-running' : 'status-stopped'}">
+                                        ${summary.available} available
+                                    </div>
+                                </div>
+                                <div class="model-info">
+                                    ${nodeRows || '<div class="small-text">No nodes configured.</div>'}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    container.innerHTML = cards.join('');
                 } catch (error) {
                     // Keep showing previous values; notify the user instead of clearing the UI
                     this.showNotification(`GPU availability error: ${error.message}`, 'error');
