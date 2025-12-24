@@ -574,6 +574,8 @@
                 setInterval(() => this.loadModels(), 5000);
                 // Auto-refresh GPU availability every 20 seconds
                 setInterval(() => this.loadGpuAvailability(), 20000);
+                // Auto-refresh cluster status (last) every 60 seconds
+                setInterval(() => this.loadClusterStatusLast(), 60000);
 
                 // Toggle node override inputs
                 const useNode = document.getElementById('useSpecificNode');
@@ -1114,12 +1116,26 @@
                     this.showNotification(`GPU availability error: ${error.message}`, 'error');
                 }
             },
+
+            async loadClusterStatusLast() {
+                try {
+                    const response = await fetch(`${this.apiBase}/status/last`);
+                    if (!response.ok) throw new Error('Failed to fetch latest cluster status');
+                    const data = await response.json();
+                    // Store for potential future UI use
+                    this.lastClusterStatus = data?.content ?? data;
+                } catch (error) {
+                    // Non-intrusive logging to avoid disrupting the UI
+                    console.warn(`Status/last error: ${error.message}`);
+                }
+            },
         };
 
         // Initialize the app when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             app.init();
             app.loadGpuAvailability();
+            app.loadClusterStatusLast();
         });
     </script>
 </body>
