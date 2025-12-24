@@ -63,6 +63,27 @@ function getTotalCapacityFromNodeConfig() {
   return totals;
 }
 
+function getNodeCapacitiesFromNodeConfig() {
+  if (!fs.existsSync(NODE_CONF_PATH)) {
+    throw new Error(`Missing node configuration: ${NODE_CONF_PATH}`);
+  }
+  const raw = fs.readFileSync(NODE_CONF_PATH, 'utf8');
+  const conf = JSON.parse(raw);
+  const gpuType = conf && conf.gpuType ? conf.gpuType : {};
+
+  const byNode = { A30: {}, A40: {}, A100: {} };
+  for (const key of Object.keys(gpuType)) {
+    const norm = normalizeType(key);
+    if (!norm) continue;
+    const nodes = gpuType[key] && gpuType[key].nodes ? gpuType[key].nodes : {};
+    for (const nodeName of Object.keys(nodes)) {
+      const cap = Number(nodes[nodeName] || 0);
+      byNode[norm][nodeName] = cap;
+    }
+  }
+  return byNode;
+}
+
 function computeUsageFromJson(jsonObj) {
   if (!jsonObj || typeof jsonObj !== 'object') return { used: { A30: 0, A40: 0, A100: 0 }, timestamp: null };
   const timestamps = Object.keys(jsonObj);
@@ -93,6 +114,76 @@ function computeUsageFromJson(jsonObj) {
     }
   }
   return { used, timestamp: latest };
+}
+
+function expandNodelist(nodelist) {
+  if (!nodelist || typeof nodelist !== 'string') return [];
+  const s = nodelist.trim();
+  if (!s) return [];
+  if (s.includes('[') && s.includes(']')) {
+    const m = s.match(/^(.*)\[(.*)\](.*)$/);
+    if (!m) return [s];
+    const prefix = m[1];
+    const inner = m[2];
+    const suffix = m[3];
+    const parts = inner.split(',').map(p => p.trim()).filter(Boolean);
+    const out = [];
+    for (const p of parts) {
+      const range = p.match(/^(\d+)-(\d+)$/);
+      if (range) {
+        const start = parseInt(range[1], 10);
+        const end = parseInt(range[2], 10);
+        const width = range[1].length;
+        const step = start <= end ? 1 : -1;
+        for (let i = start; step > 0 ? i <= end : i >= end; i += step) {
+          const num = String(i).padStart(width, '0');
+          out.push(`${prefix}${num}${suffix}`);
+        }
+      } else if (/^\d+$/.test(p)) {
+        out.push(`${prefix}${p}${suffix}`);
+      } else {
+        out.push(`${prefix}${p}${suffix}`);
+      }
+    }
+    return out;
+  }
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+}
+
+function computeUsageByNodeFromJson(jsonObj) {
+  if (!jsonObj || typeof jsonObj !== 'object') return { usedByNode: { A30: {}, A40: {}, A100: {} }, timestamp: null };
+  const timestamps = Object.keys(jsonObj);
+  if (timestamps.length === 0) return { usedByNode: { A30: {}, A40: {}, A100: {} }, timestamp: null };
+  let latest = timestamps[0];
+  let latestMs = parseTimestampToMs(latest);
+  for (const ts of timestamps.slice(1)) {
+    const ms = parseTimestampToMs(ts);
+    if (ms >= latestMs) { latestMs = ms; latest = ts; }
+  }
+  const snapshot = jsonObj[latest] || {};
+  const usedByNode = { A30: {}, A40: {}, A100: {} };
+  for (const user of Object.keys(snapshot)) {
+    const byType = snapshot[user];
+    if (!byType || typeof byType !== 'object') continue;
+    for (const typeKey of Object.keys(byType)) {
+      const norm = normalizeType(typeKey);
+      if (!norm) continue;
+      const jobs = byType[typeKey];
+      if (!jobs || typeof jobs !== 'object') continue;
+      for (const jid of Object.keys(jobs)) {
+        const rec = jobs[jid];
+        const n = Number(rec && rec.gpu_number != null ? rec.gpu_number : 0);
+        const nl = rec && rec.nodelist ? String(rec.nodelist).trim() : '';
+        if (!Number.isFinite(n) || n <= 0 || !nl) continue;
+        const nodes = expandNodelist(nl);
+        const target = nodes.length > 0 ? nodes[0] : null;
+        if (!target) continue;
+        const cur = usedByNode[norm][target] || 0;
+        usedByNode[norm][target] = cur + n;
+      }
+    }
+  }
+  return { usedByNode, timestamp: latest };
 }
 
 function getPythonCandidates() {
@@ -193,22 +284,41 @@ function getLastBlockGPUCounts(fileContent) {
  */
 function getGpuUsage() {
   const totals = getTotalCapacityFromNodeConfig();
+  const nodeCaps = getNodeCapacitiesFromNodeConfig();
   const { obj, source, usedFallback } = readJsonWithTroubleshooter();
 
   let used = { A30: 0, A40: 0, A100: 0 };
   let timestamp = null;
+  let usedByNode = { A30: {}, A40: {}, A100: {} };
   if (obj) {
     const { used: u, timestamp: ts } = computeUsageFromJson(obj);
-    used = u; timestamp = ts || null;
+    const byNodeRes = computeUsageByNodeFromJson(obj);
+    used = u; timestamp = ts || null; usedByNode = byNodeRes.usedByNode;
   } else if (usedFallback) {
     used = usedFallback;
     timestamp = null;
+  }
+
+  const byNode = { A30: {}, A40: {}, A100: {} };
+  for (const type of ['A30', 'A40', 'A100']) {
+    const caps = nodeCaps[type] || {};
+    const usedNodes = usedByNode[type] || {};
+    for (const nodeName of Object.keys(caps)) {
+      const total = Number(caps[nodeName] || 0);
+      const u = Number(usedNodes[nodeName] || 0);
+      byNode[type][nodeName] = {
+        total,
+        used: u,
+        available: Math.max(0, total - u)
+      };
+    }
   }
 
   const result = {
     A30: { total: totals.A30, used: used.A30, available: Math.max(0, totals.A30 - used.A30) },
     A40: { total: totals.A40, used: used.A40, available: Math.max(0, totals.A40 - used.A40) },
     A100: { total: totals.A100, used: used.A100, available: Math.max(0, totals.A100 - used.A100) },
+    byNode,
     timestamp,
     source
   };
