@@ -2,7 +2,7 @@
     "gpuType": {
         "A30": {
             "nodes": {
-                "gpu01":0,
+                "gpu01":4,
                 "gpu02":4
             },
             "vram":24
