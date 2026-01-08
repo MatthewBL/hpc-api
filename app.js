@@ -24,6 +24,12 @@ app.get('/env.js', (req, res) => {
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Expose node_configuration.json for download
+app.get('/node_configuration.json', (req, res) => {
+  const filePath = path.join(__dirname, 'node_configuration.json');
+  res.sendFile(filePath);
+});
+
 // Import routes correctly
 const healthRoutes = require('./routes/health');
 const modelRoutes = require('./routes/models');

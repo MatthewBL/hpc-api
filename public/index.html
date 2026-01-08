@@ -409,6 +409,7 @@
             <button class="btn btn-primary" onclick="app.showCreateModal()">➕ Add Model</button>
             <button class="btn btn-secondary" onclick="app.loadModels()">🔄 Refresh</button>
             <button class="btn btn-warning" onclick="app.showHistoryModal()">📊 View History</button>
+            <button class="btn btn-secondary" onclick="app.downloadNodeConfig()">⬇️ Download Node Config</button>
         </div>
         <div id="promptTestResult" class="models-grid" style="margin-top: 10px;"></div>
 
@@ -567,6 +568,7 @@
                 const isFile = window.location.protocol === 'file:' || window.location.origin === 'null';
                 const origin = isFile ? 'http://localhost:8080' : window.location.origin;
                 this.apiBase = `${origin}/api/models`;
+                this.apiOrigin = origin;
                 this.loadModels();
                 // Initial GPU availability load happens on DOMContentLoaded below
                 
@@ -1069,6 +1071,31 @@
                 }
             },
 
+            async downloadNodeConfig() {
+                const primaryUrl = `${this.apiOrigin}/node_configuration.json`;
+                const fallbackUrl = '../node_configuration.json';
+                try {
+                    let res = await fetch(primaryUrl, { credentials: 'same-origin' });
+                    if (!res.ok) {
+                        // Fallback for when opening index.html directly via file://
+                        res = await fetch(fallbackUrl);
+                    }
+                    if (!res.ok) throw new Error('File not found');
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'node_configuration.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    this.showNotification('Downloaded node_configuration.json', 'success');
+                } catch (err) {
+                    this.showNotification('Unable to download node_configuration.json. Ensure the server exposes it.', 'error');
+                }
+            },
+
 
             async loadGpuAvailability() {
                 const container = document.getElementById('gpuAvailability');
@@ -1100,7 +1127,7 @@
                                 return `
                                     <div class="info-row">
                                         <span class="info-label">${node}:</span>
-                                        <span class="info-value">${n.used}${Number.isFinite(n.total) ? ` / ${n.total}` : ''}</span>
+                                        <span class="info-value">${n.available}${Number.isFinite(n.total) ? ` / ${n.total}` : ''}</span>
                                     </div>
                                 `;
                             })
@@ -1111,7 +1138,7 @@
                                 <div class="model-header">
                                     <div class="model-id">${t} GPUs</div>
                                     <div class="model-status ${summary.available > 0 ? 'status-running' : 'status-stopped'}">
-                                        ${summary.available} available
+                                        ${summary.available} / ${summary.total} 
                                     </div>
                                 </div>
                                 <div class="model-info">
