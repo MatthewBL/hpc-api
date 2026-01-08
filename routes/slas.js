@@ -6,6 +6,94 @@ const router = express.Router();
 /**
  * @openapi
  * /api/slas:
+ *   get:
+ *     summary: List SLAs
+ *     tags:
+ *       - SLAs
+ *     responses:
+ *       '200':
+ *         description: List of SLAs (stub)
+ */
+// Obtain the list of SLAs
+router.get('/', (req, res) => {
+  return respond.success(res, {
+    message: 'SLAs list (stub)',
+    items: []
+  });
+});
+
+
+/**
+ * @openapi
+ * /api/slas/templates:
+ *   get:
+ *     summary: List SLA templates
+ *     tags:
+ *       - SLAs
+ *     responses:
+ *       '200':
+ *         description: List of SLA templates (stub)
+ */
+// Obtain the list of SLA templates
+router.get('/templates', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA templates list (stub)',
+    items: []
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/templates/{id}:
+ *   get:
+ *     summary: Get SLA template by id
+ *     tags:
+ *       - SLAs
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: SLA template info (stub)
+ */
+// Obtain a SLA template
+router.get('/templates/:id', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA template info (stub)',
+    id: req.params.id
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/{id}:
+ *   get:
+ *     summary: Get SLA by id
+ *     tags:
+ *       - SLAs
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: SLA info (stub)
+ */
+// Obtain an SLA
+router.get('/:id', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA info (stub)',
+    id: req.params.id
+  });
+});
+/**
+ * @openapi
+ * /api/slas:
  *   post:
  *     summary: Upload an SLA from a YAML file path
  *     description: |
