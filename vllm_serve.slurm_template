@@ -45,7 +45,6 @@ vllm serve "$1" \
   --host ${SLURMD_NODENAME} \
   --device cuda \
   --max-num-seqs 128 \
-  --max-num-batched-tokens 131072 \
   --gpu-memory-utilization 0.95 \
   --chat-template ./template.mustache \
   --trust-remote-code \
