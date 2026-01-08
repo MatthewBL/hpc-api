@@ -39,13 +39,103 @@ if [[ "$1" == *deepseek* ]]; then
   EXTRA_ARGS="--enable-reasoning --reasoning-parser deepseek_r1"
 fi
 
+# Compute a safe max-model-len from GPU capacity and model config
+# You can override via MAX_MODEL_LEN env var if needed
+export MODEL_NAME="$1"
+export GPU_MEMORY_UTILIZATION_OVERRIDE="${GPU_MEMORY_UTILIZATION_OVERRIDE:-}"
+
+DYNAMIC_MAX_LEN=$(python3 - <<'PY'
+import os, subprocess, json
+
+model = os.environ.get('MODEL_NAME') or ''
+gpu_mem_util = os.environ.get('GPU_MEMORY_UTILIZATION_OVERRIDE')
+try:
+    gpu_mem_util = float(gpu_mem_util) if gpu_mem_util else 0.95
+except Exception:
+    gpu_mem_util = 0.95
+
+# KV cache dtype bytes (approx). Override with KV_CACHE_DTYPE=fp8|fp16|fp32
+dtype_map = {'fp8': 1, 'fp16': 2, 'float16': 2, 'fp32': 4, 'float32': 4}
+kv_dtype = os.environ.get('KV_CACHE_DTYPE', 'fp16').lower()
+bytes_per_elem = dtype_map.get(kv_dtype, 2)
+
+def get_gpu_mems_mib():
+    try:
+        out = subprocess.check_output(['bash','-lc','nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits'], stderr=subprocess.STDOUT)
+        lines = [l.strip() for l in out.decode().splitlines() if l.strip()]
+        mems = [int(x) for x in lines]
+        return mems if mems else [80000]
+    except Exception:
+        return [80000]
+
+def load_model_config(model_id):
+    try:
+        from transformers import AutoConfig
+        token = os.environ.get('HUGGINGFACE_HUB_TOKEN') or os.environ.get('HF_TOKEN')
+        return AutoConfig.from_pretrained(model_id, trust_remote_code=True, token=token)
+    except Exception:
+        return None
+
+cfg = load_model_config(model)
+
+def get(attr_names, default=None):
+    if cfg is None:
+        return default
+    for name in ([attr_names] if isinstance(attr_names, str) else attr_names):
+        if hasattr(cfg, name):
+            return getattr(cfg, name)
+    return default
+
+num_layers = get(['num_hidden_layers','n_layer'], 32) or 32
+num_heads = get(['num_attention_heads','n_head'], 32) or 32
+num_kv_heads = get(['num_key_value_heads','n_kv_head'], num_heads) or num_heads
+hidden_size = get(['hidden_size','n_embd'], 4096) or 4096
+head_dim = hidden_size // max(1, num_heads)
+
+# Model-declared context length
+model_ctx = get(['max_position_embeddings','n_positions'], 8192) or 8192
+
+# Available KV bytes across visible GPUs
+total_kv_bytes = 0
+for mib in get_gpu_mems_mib():
+    total_kv_bytes += int(mib * 1024 * 1024 * gpu_mem_util)
+
+# Per-token KV bytes (K and V per layer)
+per_token_bytes = 2 * num_layers * num_kv_heads * head_dim * bytes_per_elem
+
+if per_token_bytes <= 0:
+    print('0')
+else:
+    cap_tokens = int(total_kv_bytes // per_token_bytes)
+    safe_cap = max(256, int(cap_tokens * 0.98))  # 2% headroom
+    dyn_max = min(model_ctx, safe_cap)
+    print(str(dyn_max))
+PY)
+
+# Allow manual override
+if [[ -n "${MAX_MODEL_LEN}" ]]; then
+  DYNAMIC_MAX_LEN="${MAX_MODEL_LEN}"
+fi
+
+if [[ -z "${DYNAMIC_MAX_LEN}" || "${DYNAMIC_MAX_LEN}" -le 0 ]]; then
+  echo "[vLLM] Could not compute dynamic max seq len; falling back to 8192" >&2
+  DYNAMIC_MAX_LEN=8192
+fi
+
+echo "[vLLM] Using max-model-len=${DYNAMIC_MAX_LEN}" >&2
+
+# Cap batched tokens to capacity as well (keep within max-model-len)
+MAX_BATCHED_TOKENS="${MAX_BATCHED_TOKENS:-${DYNAMIC_MAX_LEN}}"
+echo "[vLLM] Using max-num-batched-tokens=${MAX_BATCHED_TOKENS}" >&2
+
 vllm serve "$1" \
   --port "$2" \
   --tensor-parallel-size $(echo $SLURM_GPUS | awk 'BEGIN{FS=":"}{print $2}') \
   --host ${SLURMD_NODENAME} \
   --device cuda \
+  --max-model-len ${DYNAMIC_MAX_LEN} \
   --max-num-seqs 128 \
-  --max-num-batched-tokens 131072 \
+  --max-num-batched-tokens ${MAX_BATCHED_TOKENS} \
   --gpu-memory-utilization 0.95 \
   --chat-template ./template.mustache \
   --trust-remote-code \
