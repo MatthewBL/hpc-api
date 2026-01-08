@@ -20,7 +20,7 @@ if [ -z "$TOKEN" ] && [ -f ".env" ]; then
 fi
 EXPORT_ARGS=""
 if [ -n "$TOKEN" ]; then
-	EXPORT_ARGS="--export=ALL,HUGGINGFACE_HUB_TOKEN=$TOKEN"
+  EXPORT_ARGS="--export=ALL,HF_TOKEN=$TOKEN,HUGGINGFACE_HUB_TOKEN=$TOKEN"
 fi
 SUBMIT_OUT=$(sbatch $EXPORT_ARGS "$slurmFile" "$1" "$2") || SUBMIT_OUT=""
 # extract job id from sbatch output
