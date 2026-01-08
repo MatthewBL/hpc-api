@@ -2,8 +2,36 @@ source /etc/profile
 ml zlib/1.2.13 Python/3.11.5-GCCcore-13.2.0
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade transformers
+python3 -m pip install --upgrade huggingface_hub
 ml vLLM
 echo ${SLURMD_NODENAME}
+
+# Optional secure Hugging Face auth verification (no token printed)
+python3 - <<'PY'
+import os, sys
+import json
+try:
+  from huggingface_hub import whoami, get_token
+except Exception as e:
+  print(f"HF auth: huggingface_hub not available ({e})", flush=True)
+  sys.exit(0)
+
+token = os.environ.get("HUGGINGFACE_HUB_TOKEN") or os.environ.get("HF_TOKEN") or get_token()
+if not token:
+  print("HF auth: no token detected. Private/gated models may fail.", flush=True)
+  sys.exit(0)
+
+try:
+  info = whoami(token=token)
+  user = info.get("name") or info.get("fullname") or info.get("email") or "unknown-user"
+  print(f"HF auth: OK as '{user}'.", flush=True)
+except Exception as e:
+  print(f"HF auth: FAILED ({e}). Check token/permissions.", flush=True)
+  # Do not exit non-zero to avoid killing jobs unintentionally; logs suffice
+  # To enforce, set HF_ENFORCE_AUTH=1 in the environment
+  if os.environ.get("HF_ENFORCE_AUTH") == "1":
+    sys.exit(2)
+PY
 
 # Determine if model is DeepSeek
 EXTRA_ARGS=""
@@ -22,3 +50,4 @@ vllm serve "$1" \
   --chat-template ./template.mustache \
   --trust-remote-code \
   $EXTRA_ARGS
+

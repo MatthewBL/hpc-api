@@ -141,3 +141,19 @@ To allow private model downloads from Hugging Face during `vLLM serve`:
    ```
 
 The run scripts pass the token securely to the Slurm job using `sbatch --export`, so it is not written into the generated `.slurm` file.
+
+### Verifying Authentication
+
+Each job now performs a lightweight, safe check and writes one of the following to the job log (`logs/slurm-<JOBID>.out`):
+
+- `HF auth: OK as '<user>'` — token is valid and usable
+- `HF auth: no token detected` — token was not found in the environment
+- `HF auth: FAILED (...)` — token present but invalid or missing permissions
+
+If you want the job to abort when auth fails, set:
+
+```bash
+export HF_ENFORCE_AUTH=1
+```
+
+Then start your job with `make start_* ...` as usual.
