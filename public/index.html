@@ -378,6 +378,16 @@
             color: #667eea;
             margin-bottom: 8px;
         }
+
+        /* Highlight nodes with zero available GPUs (exhausted) */
+        .node-exhausted {
+            background: #fff5f5;
+        }
+        .node-exhausted .info-label,
+        .node-exhausted .info-value {
+            color: #c53030;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
@@ -470,6 +480,7 @@
                         <option value="a100" selected>A100</option>
                     </select>
                     <div class="small-text">Choose the GPU family; scheduler picks the node.</div>
+                    <div class="small-text" id="gpuTypeVram" style="margin-top:6px;"></div>
                 </div>
 
                 <div class="form-group">
@@ -524,6 +535,7 @@
                         <option value="a40">A40</option>
                         <option value="a100">A100</option>
                     </select>
+                    <div class="small-text" id="runGpuTypeVram" style="margin-top:6px;"></div>
                 </div>
 
                 <div class="form-group">
@@ -563,6 +575,7 @@
         const app = {
             apiBase: '',
             editingModelId: null,
+            nodeConfig: null,
 
             init() {
                 const isFile = window.location.protocol === 'file:' || window.location.origin === 'null';
@@ -595,6 +608,57 @@
                         runNodeInput.disabled = !runUseNode.checked;
                         if (!runUseNode.checked) runNodeInput.value = '';
                     });
+                }
+
+                // Load node configuration and wire up VRAM display under GPU selectors
+                this.loadNodeConfig();
+                const gpuTypeSelect = document.getElementById('gpuType');
+                if (gpuTypeSelect) {
+                    gpuTypeSelect.addEventListener('change', () => this.updateGpuTypeVramDisplays());
+                }
+                const runGpuTypeSelect = document.getElementById('runGpuType');
+                if (runGpuTypeSelect) {
+                    runGpuTypeSelect.addEventListener('change', () => this.updateGpuTypeVramDisplays());
+                }
+            },
+
+            async loadNodeConfig() {
+                const primaryUrl = `${this.apiOrigin}/node_configuration.json`;
+                const fallbackUrl = '../node_configuration.json';
+                try {
+                    const res = await fetch(primaryUrl);
+                    if (!res.ok) throw new Error('Primary fetch failed');
+                    this.nodeConfig = await res.json();
+                } catch (e) {
+                    try {
+                        const res2 = await fetch(fallbackUrl);
+                        if (!res2.ok) throw new Error('Fallback fetch failed');
+                        this.nodeConfig = await res2.json();
+                    } catch (e2) {
+                        this.nodeConfig = null;
+                    }
+                }
+                this.updateGpuTypeVramDisplays();
+            },
+
+            getVramForGpuType(typeLower) {
+                const key = (typeLower || '').toUpperCase();
+                return this.nodeConfig?.gpuType?.[key]?.vram ?? null;
+            },
+
+            updateGpuTypeVramDisplays() {
+                const createSelect = document.getElementById('gpuType');
+                const createDisplay = document.getElementById('gpuTypeVram');
+                if (createSelect && createDisplay) {
+                    const vram = this.getVramForGpuType(createSelect.value);
+                    createDisplay.textContent = vram ? `VRAM per GPU: ${vram} GB` : '';
+                }
+
+                const runSelect = document.getElementById('runGpuType');
+                const runDisplay = document.getElementById('runGpuTypeVram');
+                if (runSelect && runDisplay) {
+                    const vram = this.getVramForGpuType(runSelect.value);
+                    runDisplay.textContent = vram ? `VRAM per GPU: ${vram} GB` : '';
                 }
             },
 
@@ -705,6 +769,7 @@
                 document.getElementById('node').value = '';
                 document.getElementById('node').disabled = true;
                 document.getElementById('modelModal').classList.add('active');
+                this.updateGpuTypeVramDisplays();
             },
 
             async showEditModal(id) {
@@ -732,6 +797,7 @@
                     document.getElementById('period').value = model.settings?.period || '24:00:00';
 
                     document.getElementById('modelModal').classList.add('active');
+                    this.updateGpuTypeVramDisplays();
                 } catch (error) {
                     this.showNotification('Failed to load model: ' + error.message, 'error');
                 }
@@ -813,6 +879,7 @@
                     document.getElementById('runPeriod').value = model.settings?.period || '24:00:00';
 
                     document.getElementById('runModal').classList.add('active');
+                    this.updateGpuTypeVramDisplays();
                 } catch (error) {
                     this.showNotification('Failed to load model: ' + error.message, 'error');
                 }
@@ -1120,12 +1187,21 @@
                     const cards = types.map((t) => {
                         const summary = usage[t] || { total: 0, used: 0, available: 0 };
                         const nodes = byNode[t] || {};
+                        const vram = this.getVramForGpuType(t.toLowerCase());
+                        const vramRow = `
+                            <div class="info-row">
+                                <span class="info-label">VRAM per GPU:</span>
+                                <span class="info-value">${vram ? `${vram} GB` : '—'}</span>
+                            </div>
+                        `;
                         const nodeRows = Object.keys(nodes)
                             .sort()
                             .map((node) => {
                                 const n = nodes[node] || { total: 0, used: 0, available: 0 };
+                                const exhausted = Number.isFinite(n.total) && n.total > 0 && Number.isFinite(n.available) && n.available === 0;
+                                const rowClass = exhausted ? 'info-row node-exhausted' : 'info-row';
                                 return `
-                                    <div class="info-row">
+                                    <div class="${rowClass}">
                                         <span class="info-label">${node}:</span>
                                         <span class="info-value">${n.available}${Number.isFinite(n.total) ? ` / ${n.total}` : ''}</span>
                                     </div>
@@ -1142,6 +1218,7 @@
                                     </div>
                                 </div>
                                 <div class="model-info">
+                                    ${vramRow}
                                     ${nodeRows || '<div class="small-text">No nodes configured.</div>'}
                                 </div>
                             </div>
@@ -1170,10 +1247,12 @@
         };
 
         // Initialize the app when DOM is ready
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             app.init();
-            app.loadGpuAvailability();
-            app.loadClusterStatusLast();
+            // Ensure static node configuration is available before rendering availability cards
+            await app.loadNodeConfig();
+            await app.loadClusterStatusLast();
+            await app.loadGpuAvailability();
         });
     </script>
 </body>
