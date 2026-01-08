@@ -34,11 +34,15 @@ app.get('/node_configuration.json', (req, res) => {
 const healthRoutes = require('./routes/health');
 const modelRoutes = require('./routes/models');
 const jobRoutes = require('./routes/jobs');
+const researcherRoutes = require('./routes/researchers');
+const slaRoutes = require('./routes/slas');
 
 // Use routes - make sure these are actually router objects
 app.use('/health', healthRoutes);
 app.use('/api/models', modelRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/researchers', researcherRoutes);
+app.use('/api/slas', slaRoutes);
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');

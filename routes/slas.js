@@ -1,0 +1,167 @@
+const express = require('express');
+const respond = require('../utils/response');
+
+const router = express.Router();
+
+/**
+ * @openapi
+ * /api/slas:
+ *   post:
+ *     summary: Upload an SLA from a YAML file path
+ *     description: |
+ *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
+ *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
+ *       Prefer sending `{ "path": "C:\\path\\to\\file.yaml" }`.
+ *     tags:
+ *       - SLAs
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: string
+ *                 description: Absolute or relative path to the YAML file
+ *               - type: object
+ *                 properties:
+ *                   path:
+ *                     type: string
+ *                   yamlPath:
+ *                     type: string
+ *           examples:
+ *             objectForm:
+ *               summary: Object form
+ *               value:
+ *                 path: "C:\\temp\\example.yaml"
+ *             stringForm:
+ *               summary: Raw JSON string form
+ *               value: "C:\\temp\\example.yaml"
+ *     responses:
+ *       '200':
+ *         description: SLA uploaded (stub)
+ */
+// Upload a SLA (expects body to be a string or object containing a path)
+router.post('/', (req, res) => {
+  const body = req.body;
+  const yamlPath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
+  return respond.success(res, {
+    message: 'SLA uploaded (stub)',
+    yamlPath
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/{id}:
+ *   delete:
+ *     summary: Remove an SLA
+ *     tags:
+ *       - SLAs
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: SLA removed (stub)
+ */
+// Remove a SLA
+router.delete('/:id', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA removed (stub)',
+    id: req.params.id
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/templates:
+ *   post:
+ *     summary: Upload an SLA template
+ *     tags:
+ *       - SLAs
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *           examples:
+ *             uploadTemplate:
+ *               value:
+ *                 templateName: "basic"
+ *                 content: "..."
+ *     responses:
+ *       '200':
+ *         description: SLA template uploaded (stub)
+ */
+// Upload a SLA template
+router.post('/templates', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA template uploaded (stub)',
+    payload: req.body || null
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/from-template:
+ *   post:
+ *     summary: Create an SLA from a template
+ *     description: No assumptions on how the SLA is generated; payload is flexible.
+ *     tags:
+ *       - SLAs
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *           examples:
+ *             fromTemplate:
+ *               value:
+ *                 templateId: "tmpl-1"
+ *                 variables:
+ *                   project: "example"
+ *     responses:
+ *       '200':
+ *         description: SLA created from template (stub)
+ */
+// Create a SLA from a template (no assumptions)
+router.post('/from-template', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA created from template (stub)',
+    payload: req.body || null
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/{id}/validate:
+ *   post:
+ *     summary: Validate that an SLA functions
+ *     tags:
+ *       - SLAs
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: SLA validation triggered (stub)
+ */
+// Validate that a SLA functions
+router.post('/:id/validate', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA validation triggered (stub)',
+    id: req.params.id
+  });
+});
+
+module.exports = router;
