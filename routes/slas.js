@@ -70,6 +70,60 @@ router.get('/templates/:id', (req, res) => {
 /**
  * @openapi
  * /api/slas/{id}:
+ *   put:
+ *     summary: Update an SLA from a YAML file path
+ *     description: |
+ *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
+ *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
+ *       Prefer sending `{ "path": "C:\\path\\to\\file.yaml" }`.
+ *     tags:
+ *       - SLAs
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: string
+ *                 description: Absolute or relative path to the YAML file
+ *               - type: object
+ *                 properties:
+ *                   path:
+ *                     type: string
+ *                   yamlPath:
+ *                     type: string
+ *           examples:
+ *             objectForm:
+ *               summary: Object form
+ *               value:
+ *                 path: "C:\\temp\\updated.yaml"
+ *             stringForm:
+ *               summary: Raw JSON string form
+ *               value: "C:\\temp\\updated.yaml"
+ *     responses:
+ *       '200':
+ *         description: SLA updated (stub)
+ */
+// Update an SLA YAML definition
+router.put('/:id', (req, res) => {
+  const body = req.body;
+  const yamlPath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
+  return respond.success(res, {
+    message: 'SLA updated (stub)',
+    id: req.params.id,
+    yamlPath
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/{id}:
  *   get:
  *     summary: Get SLA by id
  *     tags:
@@ -234,6 +288,59 @@ router.delete('/templates/:id', (req, res) => {
   });
 });
 
+/**
+ * @openapi
+ * /api/slas/templates/{id}:
+ *   put:
+ *     summary: Update an SLA template from a YAML file path
+ *     description: |
+ *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
+ *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
+ *       Prefer sending `{ "path": "C:\\path\\to\\template.yaml" }`.
+ *     tags:
+ *       - SLAs
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: string
+ *                 description: Absolute or relative path to the template YAML file
+ *               - type: object
+ *                 properties:
+ *                   path:
+ *                     type: string
+ *                   yamlPath:
+ *                     type: string
+ *           examples:
+ *             objectForm:
+ *               summary: Object form
+ *               value:
+ *                 path: "C:\\temp\\template-updated.yaml"
+ *             stringForm:
+ *               summary: Raw JSON string form
+ *               value: "C:\\temp\\template-updated.yaml"
+ *     responses:
+ *       '200':
+ *         description: SLA template updated (stub)
+ */
+// Update an SLA template YAML definition
+router.put('/templates/:id', (req, res) => {
+  const body = req.body;
+  const templatePath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
+  return respond.success(res, {
+    message: 'SLA template updated (stub)',
+    id: req.params.id,
+    templatePath
+  });
+});
 /**
  * @openapi
  * /api/slas/from-template:
