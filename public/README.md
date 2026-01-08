@@ -122,3 +122,22 @@ Works on all modern browsers:
 **Delete button disabled?**
 - Models can only be deleted when stopped
 - Stop the model first, then delete
+
+## Hugging Face Token
+
+To allow private model downloads from Hugging Face during `vLLM serve`:
+
+- Add your token to a `.env` file in the project root:
+
+   ```env
+   HUGGINGFACE_HUB_TOKEN=hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   ```
+
+- Or set it in your shell before invoking `make`:
+
+   ```bash
+   export HUGGINGFACE_HUB_TOKEN=hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+   make start_a40 MODEL=meta-llama/Llama-3.1-8B PORT=8000 GPUS=1 CPUS=8 PERIOD=02:00:00
+   ```
+
+The run scripts pass the token securely to the Slurm job using `sbatch --export`, so it is not written into the generated `.slurm` file.

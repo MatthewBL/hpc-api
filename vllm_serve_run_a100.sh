@@ -14,7 +14,15 @@ echo "$SBATCH_LINE" >> "$slurmFile"
 cat vllm_serve.slurm_template >> "$slurmFile"
 echo "Temp file: $slurmFile"
 mkdir -p logs
-SUBMIT_OUT=$(sbatch "$slurmFile" "$1" "$2") || SUBMIT_OUT=""
+TOKEN="${HUGGINGFACE_HUB_TOKEN:-${HF_TOKEN}}"
+if [ -z "$TOKEN" ] && [ -f ".env" ]; then
+	TOKEN=$(grep -E '^(HUGGINGFACE_HUB_TOKEN|HF_TOKEN)=' .env | tail -1 | cut -d= -f2-)
+fi
+EXPORT_ARGS=""
+if [ -n "$TOKEN" ]; then
+	EXPORT_ARGS="--export=ALL,HUGGINGFACE_HUB_TOKEN=$TOKEN"
+fi
+SUBMIT_OUT=$(sbatch $EXPORT_ARGS "$slurmFile" "$1" "$2") || SUBMIT_OUT=""
 # extract job id from sbatch output
 JOB_ID=$(echo "$SUBMIT_OUT" | awk '{print $4}')
 GPU_NODE=$(squeue | grep temp_ | rev | cut -d' ' -f1 | rev | head -1 || true)
