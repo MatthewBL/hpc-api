@@ -79,7 +79,11 @@ router.delete('/:id', (req, res) => {
  * @openapi
  * /api/slas/templates:
  *   post:
- *     summary: Upload an SLA template
+ *     summary: Upload an SLA template from a YAML file path
+ *     description: |
+ *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
+ *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
+ *       Prefer sending `{ "path": "C:\\path\\to\\template.yaml" }`.
  *     tags:
  *       - SLAs
  *     requestBody:
@@ -87,22 +91,58 @@ router.delete('/:id', (req, res) => {
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             additionalProperties: true
+ *             oneOf:
+ *               - type: string
+ *                 description: Absolute or relative path to the template YAML file
+ *               - type: object
+ *                 properties:
+ *                   path:
+ *                     type: string
+ *                   yamlPath:
+ *                     type: string
  *           examples:
- *             uploadTemplate:
+ *             objectForm:
+ *               summary: Object form
  *               value:
- *                 templateName: "basic"
- *                 content: "..."
+ *                 path: "C:\\temp\\template.yaml"
+ *             stringForm:
+ *               summary: Raw JSON string form
+ *               value: "C:\\temp\\template.yaml"
  *     responses:
  *       '200':
  *         description: SLA template uploaded (stub)
  */
 // Upload a SLA template
 router.post('/templates', (req, res) => {
+  const body = req.body;
+  const templatePath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
   return respond.success(res, {
     message: 'SLA template uploaded (stub)',
-    payload: req.body || null
+    templatePath
+  });
+});
+
+/**
+ * @openapi
+ * /api/slas/templates/{id}:
+ *   delete:
+ *     summary: Remove an SLA template
+ *     tags:
+ *       - SLAs
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: SLA template removed (stub)
+ */
+router.delete('/templates/:id', (req, res) => {
+  return respond.success(res, {
+    message: 'SLA template removed (stub)',
+    id: req.params.id
   });
 });
 
