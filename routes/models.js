@@ -292,6 +292,7 @@ router.get('/test-prompt', async (req, res) => {
     const temperature = req.query.temperature !== undefined ? Number(req.query.temperature) : 0;
     const maxTokens = req.query.max_tokens !== undefined ? Number(req.query.max_tokens) : 64;
     const timeoutMs = req.query.timeoutMs !== undefined ? Number(req.query.timeoutMs) : 5000;
+    const stop = req.query.stop ? req.query.stop : ["<|eot_id|>", "<|end_of_text|>", "<|im_end|>", "<3|im_end|>"];
 
     let node = req.query.node ? String(req.query.node) : '';
     let port = req.query.port !== undefined ? Number(req.query.port) : NaN;
@@ -351,7 +352,8 @@ router.get('/test-prompt', async (req, res) => {
       model: modelName,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: maxTokens,
-      temperature
+      temperature,
+      stop: stop
     };
 
     try {
