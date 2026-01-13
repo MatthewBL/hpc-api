@@ -1,9 +1,10 @@
 source /etc/profile
 ml zlib/1.2.13 Python/3.11.5-GCCcore-13.2.0
+ml vLLM
+# Ensure the Transformers used by vLLM is up-to-date
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade transformers
 python3 -m pip install --upgrade huggingface_hub
-ml vLLM
 echo ${SLURMD_NODENAME}
 
 # Optional secure Hugging Face auth verification (no token printed)
