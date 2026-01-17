@@ -58,14 +58,18 @@ router.post('/', async (req, res) => {
       return respond.error(res, 'Name and email are required', 400);
     }
     
-    // Generate unique ID for the researcher
+    // Generate unique ID for the researcher and an API key
     const researcherId = crypto.randomBytes(16).toString('hex');
-    
+    const apiKeyId = crypto.randomBytes(32).toString('hex');
+
+    // Create API key document
+    await apiKeyStore.addAPIKey(apiKeyId, { id: apiKeyId, slas: [] });
+
     const researcher = new Researcher({
       id: researcherId,
       name: name,
       email: email,
-      apiKey: '' // No API key until an SLA is assigned
+      apiKey: apiKeyId
     });
     
     await researcherStore.addResearcher(researcherId, researcher.toJSON());

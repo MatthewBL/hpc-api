@@ -1,402 +1,295 @@
 const express = require('express');
 const respond = require('../utils/response');
+const crypto = require('crypto');
+const SLA = require('../models/sla');
+const SLATemplate = require('../models/slaTemplate');
+const slaStore = require('../services/slaStore');
+const slaTemplateStore = require('../services/slaTemplateStore');
+const apiKeyStore = require('../services/apiKeyStore');
 
 const router = express.Router();
 
-/**
- * @openapi
- * /api/slas:
- *   get:
- *     summary: List SLAs
- *     tags:
- *       - SLAs
- *     responses:
- *       '200':
- *         description: List of SLAs (stub)
- */
-// Obtain the list of SLAs
-router.get('/', (req, res) => {
-  return respond.success(res, {
-    message: 'SLAs list (stub)',
-    items: []
+// Helper: check expiry and auto-expire if necessary
+async function checkAndExpireIfNeeded(slaDoc) {
+  if (!slaDoc) return null;
+  const instance = SLA.fromJSON({
+    id: slaDoc.id || slaDoc._id,
+    filepath: slaDoc.filepath,
+    apiKey: slaDoc.apiKey,
+    templateId: slaDoc.templateId,
+    validity: slaDoc.validity,
+    expiryDate: slaDoc.expiryDate
   });
+
+  const expired = instance.isExpired();
+  if (expired && slaDoc.validity === true) {
+    // expire it in storage
+    await slaStore.updateSLA(slaDoc._id || slaDoc.id, { validity: false });
+    const updated = await slaStore.findSLA(slaDoc._id || slaDoc.id);
+    return updated;
+  }
+  // Return normalized JSON reflecting current validity
+  return instance.toJSON();
+}
+
+/** Templates CRUD **/
+
+// Create SLA template
+router.post('/templates', async (req, res) => {
+  try {
+    const filepath = req.body?.filepath || req.body?.path || req.body?.yamlPath || (typeof req.body === 'string' ? req.body : null);
+    if (!filepath) return respond.error(res, 'filepath is required', 400);
+    const id = crypto.randomBytes(16).toString('hex');
+    const tmpl = new SLATemplate({ id, filepath });
+    await slaTemplateStore.addTemplate(id, tmpl.toJSON());
+    return respond.success(res, { message: 'SLA template created', template: tmpl.toJSON() });
+  } catch (err) {
+    console.error('Create template error:', err);
+    return respond.error(res, 'Failed to create template: ' + err.message);
+  }
 });
 
-
-/**
- * @openapi
- * /api/slas/templates:
- *   get:
- *     summary: List SLA templates
- *     tags:
- *       - SLAs
- *     responses:
- *       '200':
- *         description: List of SLA templates (stub)
- */
-// Obtain the list of SLA templates
-router.get('/templates', (req, res) => {
-  return respond.success(res, {
-    message: 'SLA templates list (stub)',
-    items: []
-  });
+// Read SLA template
+router.get('/templates/:id', async (req, res) => {
+  try {
+    const doc = await slaTemplateStore.findTemplate(req.params.id);
+    if (!doc) return respond.error(res, 'Template not found', 404);
+    return respond.success(res, { message: 'Template retrieved', template: doc });
+  } catch (err) {
+    console.error('Get template error:', err);
+    return respond.error(res, 'Failed to get template: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/templates/{id}:
- *   get:
- *     summary: Get SLA template by id
- *     tags:
- *       - SLAs
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       '200':
- *         description: SLA template info (stub)
- */
-// Obtain a SLA template
-router.get('/templates/:id', (req, res) => {
-  return respond.success(res, {
-    message: 'SLA template info (stub)',
-    id: req.params.id
-  });
+// List templates
+router.get('/templates', async (req, res) => {
+  try {
+    const docs = await slaTemplateStore.getAll();
+    return respond.success(res, { message: 'Templates retrieved', count: docs.length, templates: docs });
+  } catch (err) {
+    console.error('List templates error:', err);
+    return respond.error(res, 'Failed to list templates: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/{id}:
- *   put:
- *     summary: Update an SLA from a YAML file path
- *     description: |
- *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
- *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
- *       Prefer sending `{ "path": "C:\\path\\to\\file.yaml" }`.
- *     tags:
- *       - SLAs
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             oneOf:
- *               - type: string
- *                 description: Absolute or relative path to the YAML file
- *               - type: object
- *                 properties:
- *                   path:
- *                     type: string
- *                   yamlPath:
- *                     type: string
- *           examples:
- *             objectForm:
- *               summary: Object form
- *               value:
- *                 path: "C:\\temp\\updated.yaml"
- *             stringForm:
- *               summary: Raw JSON string form
- *               value: "C:\\temp\\updated.yaml"
- *     responses:
- *       '200':
- *         description: SLA updated (stub)
- */
-// Update an SLA YAML definition
-router.put('/:id', (req, res) => {
-  const body = req.body;
-  const yamlPath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
-  return respond.success(res, {
-    message: 'SLA updated (stub)',
-    id: req.params.id,
-    yamlPath
-  });
+// Update template filepath
+router.put('/templates/:id', async (req, res) => {
+  try {
+    const filepath = req.body?.filepath || req.body?.path || req.body?.yamlPath || (typeof req.body === 'string' ? req.body : null);
+    if (!filepath) return respond.error(res, 'filepath is required', 400);
+    const updated = await slaTemplateStore.updateTemplate(req.params.id, { filepath });
+    return respond.success(res, { message: 'Template updated', template: updated });
+  } catch (err) {
+    console.error('Update template error:', err);
+    if (err.message === 'Template not found') return respond.error(res, err.message, 404);
+    return respond.error(res, 'Failed to update template: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/{id}:
- *   get:
- *     summary: Get SLA by id
- *     tags:
- *       - SLAs
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       '200':
- *         description: SLA info (stub)
- */
-// Obtain an SLA
-router.get('/:id', (req, res) => {
-  return respond.success(res, {
-    message: 'SLA info (stub)',
-    id: req.params.id
-  });
-});
-/**
- * @openapi
- * /api/slas:
- *   post:
- *     summary: Upload an SLA from a YAML file path
- *     description: |
- *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
- *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
- *       Prefer sending `{ "path": "C:\\path\\to\\file.yaml" }`.
- *     tags:
- *       - SLAs
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             oneOf:
- *               - type: string
- *                 description: Absolute or relative path to the YAML file
- *               - type: object
- *                 properties:
- *                   path:
- *                     type: string
- *                   yamlPath:
- *                     type: string
- *           examples:
- *             objectForm:
- *               summary: Object form
- *               value:
- *                 path: "C:\\temp\\example.yaml"
- *             stringForm:
- *               summary: Raw JSON string form
- *               value: "C:\\temp\\example.yaml"
- *     responses:
- *       '200':
- *         description: SLA uploaded (stub)
- */
-// Upload a SLA (expects body to be a string or object containing a path)
-router.post('/', (req, res) => {
-  const body = req.body;
-  const yamlPath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
-  return respond.success(res, {
-    message: 'SLA uploaded (stub)',
-    yamlPath
-  });
+// Delete template
+router.delete('/templates/:id', async (req, res) => {
+  try {
+    const numRemoved = await slaTemplateStore.removeTemplate(req.params.id);
+    if (numRemoved === 0) return respond.error(res, 'Template not found', 404);
+    return respond.success(res, { message: 'Template deleted' });
+  } catch (err) {
+    console.error('Delete template error:', err);
+    return respond.error(res, 'Failed to delete template: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/{id}:
- *   delete:
- *     summary: Remove an SLA
- *     tags:
- *       - SLAs
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       '200':
- *         description: SLA removed (stub)
- */
-// Remove a SLA
-router.delete('/:id', (req, res) => {
-  return respond.success(res, {
-    message: 'SLA removed (stub)',
-    id: req.params.id
-  });
+/** SLAs CRUD and operations **/
+
+// Create SLA
+router.post('/', async (req, res) => {
+  try {
+    const { filepath, apiKey, templateId } = req.body || {};
+    let { validity, expiryDate } = req.body || {};
+    if (!filepath || !apiKey || !templateId) {
+      return respond.error(res, 'filepath, apiKey and templateId are required', 400);
+    }
+    // ensure apiKey exists
+    const apiKeyDoc = await apiKeyStore.findAPIKey(apiKey);
+    if (!apiKeyDoc) return respond.error(res, 'API Key not found', 400);
+    // optional: ensure template exists
+    const templateDoc = await slaTemplateStore.findTemplate(templateId);
+    if (!templateDoc) return respond.error(res, 'Template not found', 400);
+
+    // defaults
+    if (validity === undefined) validity = true;
+    if (!expiryDate) {
+      const now = new Date();
+      const monthLater = new Date(now.getTime());
+      monthLater.setMonth(monthLater.getMonth() + 1);
+      expiryDate = monthLater.toISOString();
+    }
+
+    const id = crypto.randomBytes(16).toString('hex');
+    const instance = new SLA({ id, filepath, apiKey, templateId, validity, expiryDate });
+    await slaStore.addSLA(id, instance.toJSON());
+
+    // Assign SLA to the API key owner automatically
+    // Update API key store to include this SLA id
+    const slas = Array.isArray(apiKeyDoc.slas) ? apiKeyDoc.slas : [];
+    if (!slas.includes(id)) {
+      slas.push(id);
+      await apiKeyStore.updateAPIKey(apiKey, { slas });
+    }
+
+    return respond.success(res, { message: 'SLA created', sla: instance.toJSON() });
+  } catch (err) {
+    console.error('Create SLA error:', err);
+    return respond.error(res, 'Failed to create SLA: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/templates:
- *   post:
- *     summary: Upload an SLA template from a YAML file path
- *     description: |
- *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
- *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
- *       Prefer sending `{ "path": "C:\\path\\to\\template.yaml" }`.
- *     tags:
- *       - SLAs
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             oneOf:
- *               - type: string
- *                 description: Absolute or relative path to the template YAML file
- *               - type: object
- *                 properties:
- *                   path:
- *                     type: string
- *                   yamlPath:
- *                     type: string
- *           examples:
- *             objectForm:
- *               summary: Object form
- *               value:
- *                 path: "C:\\temp\\template.yaml"
- *             stringForm:
- *               summary: Raw JSON string form
- *               value: "C:\\temp\\template.yaml"
- *     responses:
- *       '200':
- *         description: SLA template uploaded (stub)
- */
-// Upload a SLA template
-router.post('/templates', (req, res) => {
-  const body = req.body;
-  const templatePath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
-  return respond.success(res, {
-    message: 'SLA template uploaded (stub)',
-    templatePath
-  });
+// Get SLA by id (checking expiry)
+router.get('/:id', async (req, res) => {
+  try {
+    const doc = await slaStore.findSLA(req.params.id);
+    if (!doc) return respond.error(res, 'SLA not found', 404);
+    const updatedOrNormalized = await checkAndExpireIfNeeded(doc);
+    return respond.success(res, { message: 'SLA retrieved', sla: updatedOrNormalized });
+  } catch (err) {
+    console.error('Get SLA error:', err);
+    return respond.error(res, 'Failed to get SLA: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/templates/{id}:
- *   delete:
- *     summary: Remove an SLA template
- *     tags:
- *       - SLAs
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       '200':
- *         description: SLA template removed (stub)
- */
-router.delete('/templates/:id', (req, res) => {
-  return respond.success(res, {
-    message: 'SLA template removed (stub)',
-    id: req.params.id
-  });
+// List SLAs given an API key
+router.get('/by-apiKey/:apiKey', async (req, res) => {
+  try {
+    const docs = await slaStore.findByApiKey(req.params.apiKey);
+    const results = [];
+    for (const d of docs) {
+      const u = await checkAndExpireIfNeeded(d);
+      results.push(u);
+    }
+    return respond.success(res, { message: 'SLAs by API key', count: results.length, slas: results });
+  } catch (err) {
+    console.error('List SLAs by key error:', err);
+    return respond.error(res, 'Failed to list SLAs by API key: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/templates/{id}:
- *   put:
- *     summary: Update an SLA template from a YAML file path
- *     description: |
- *       Accepts either a JSON object with a `path`/`yamlPath` string, or a raw JSON string representing the file path.
- *       Note: When the server uses the default `express.json({ strict: true })`, raw string bodies may be rejected.
- *       Prefer sending `{ "path": "C:\\path\\to\\template.yaml" }`.
- *     tags:
- *       - SLAs
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             oneOf:
- *               - type: string
- *                 description: Absolute or relative path to the template YAML file
- *               - type: object
- *                 properties:
- *                   path:
- *                     type: string
- *                   yamlPath:
- *                     type: string
- *           examples:
- *             objectForm:
- *               summary: Object form
- *               value:
- *                 path: "C:\\temp\\template-updated.yaml"
- *             stringForm:
- *               summary: Raw JSON string form
- *               value: "C:\\temp\\template-updated.yaml"
- *     responses:
- *       '200':
- *         description: SLA template updated (stub)
- */
-// Update an SLA template YAML definition
-router.put('/templates/:id', (req, res) => {
-  const body = req.body;
-  const templatePath = typeof body === 'string' ? body : (body && (body.path || body.yamlPath)) || null;
-  return respond.success(res, {
-    message: 'SLA template updated (stub)',
-    id: req.params.id,
-    templatePath
-  });
-});
-/**
- * @openapi
- * /api/slas/from-template:
- *   post:
- *     summary: Create an SLA from a template
- *     description: No assumptions on how the SLA is generated; payload is flexible.
- *     tags:
- *       - SLAs
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             additionalProperties: true
- *           examples:
- *             fromTemplate:
- *               value:
- *                 templateId: "tmpl-1"
- *                 variables:
- *                   project: "example"
- *     responses:
- *       '200':
- *         description: SLA created from template (stub)
- */
-// Create a SLA from a template (no assumptions)
-router.post('/from-template', (req, res) => {
-  return respond.success(res, {
-    message: 'SLA created from template (stub)',
-    payload: req.body || null
-  });
+// List all SLAs
+router.get('/', async (req, res) => {
+  try {
+    const docs = await slaStore.getAll();
+    const results = [];
+    for (const d of docs) {
+      const u = await checkAndExpireIfNeeded(d);
+      results.push(u);
+    }
+    return respond.success(res, { message: 'SLAs retrieved', count: results.length, slas: results });
+  } catch (err) {
+    console.error('List SLAs error:', err);
+    return respond.error(res, 'Failed to list SLAs: ' + err.message);
+  }
 });
 
-/**
- * @openapi
- * /api/slas/{id}/validate:
- *   post:
- *     summary: Validate that an SLA functions
- *     tags:
- *       - SLAs
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       '200':
- *         description: SLA validation triggered (stub)
- */
-// Validate that a SLA functions
-router.post('/:id/validate', (req, res) => {
-  return respond.success(res, {
-    message: 'SLA validation triggered (stub)',
-    id: req.params.id
-  });
+// Modify data of an SLA
+router.put('/:id', async (req, res) => {
+  try {
+    const existing = await slaStore.findSLA(req.params.id);
+    if (!existing) return respond.error(res, 'SLA not found', 404);
+
+    const updates = {};
+    const allowed = ['filepath', 'apiKey', 'templateId', 'validity', 'expiryDate'];
+    for (const k of allowed) {
+      if (req.body[k] !== undefined) updates[k] = req.body[k];
+    }
+
+    // If apiKey changes, move SLA id between API keys
+    if (updates.apiKey && updates.apiKey !== existing.apiKey) {
+      const newKeyDoc = await apiKeyStore.findAPIKey(updates.apiKey);
+      if (!newKeyDoc) return respond.error(res, 'New API Key not found', 400);
+      const oldKeyDoc = await apiKeyStore.findAPIKey(existing.apiKey);
+      if (oldKeyDoc) {
+        const s = Array.isArray(oldKeyDoc.slas) ? oldKeyDoc.slas : [];
+        const idx = s.indexOf(existing._id || req.params.id);
+        if (idx > -1) s.splice(idx, 1);
+        await apiKeyStore.updateAPIKey(existing.apiKey, { slas: s });
+      }
+      const s2 = Array.isArray(newKeyDoc.slas) ? newKeyDoc.slas : [];
+      if (!s2.includes(existing._id || req.params.id)) s2.push(existing._id || req.params.id);
+      await apiKeyStore.updateAPIKey(updates.apiKey, { slas: s2 });
+    }
+
+    // If templateId is updated, optional validation that it exists
+    if (updates.templateId) {
+      const tmpl = await slaTemplateStore.findTemplate(updates.templateId);
+      if (!tmpl) return respond.error(res, 'Template not found', 400);
+    }
+
+    const updated = await slaStore.updateSLA(req.params.id, updates);
+    const normalized = await checkAndExpireIfNeeded(updated);
+    return respond.success(res, { message: 'SLA updated', sla: normalized });
+  } catch (err) {
+    console.error('Update SLA error:', err);
+    if (err.message === 'SLA not found') return respond.error(res, err.message, 404);
+    return respond.error(res, 'Failed to update SLA: ' + err.message);
+  }
 });
+
+// Check if SLA has expired
+router.get('/:id/check-expiry', async (req, res) => {
+  try {
+    const doc = await slaStore.findSLA(req.params.id);
+    if (!doc) return respond.error(res, 'SLA not found', 404);
+    const instance = SLA.fromJSON({
+      id: doc.id || doc._id,
+      filepath: doc.filepath,
+      apiKey: doc.apiKey,
+      templateId: doc.templateId,
+      validity: doc.validity,
+      expiryDate: doc.expiryDate
+    });
+    const expired = instance.isExpired();
+    return respond.success(res, { message: 'SLA expiry checked', expired, currentlyValid: instance.isValid() });
+  } catch (err) {
+    console.error('Check expiry error:', err);
+    return respond.error(res, 'Failed to check expiry: ' + err.message);
+  }
+});
+
+// Expire an SLA (validity = false)
+router.post('/:id/expire', async (req, res) => {
+  try {
+    const doc = await slaStore.findSLA(req.params.id);
+    if (!doc) return respond.error(res, 'SLA not found', 404);
+    if (doc.validity === false) {
+      return respond.success(res, { message: 'SLA already expired', sla: doc });
+    }
+    const updated = await slaStore.updateSLA(req.params.id, { validity: false });
+    return respond.success(res, { message: 'SLA expired', sla: updated });
+  } catch (err) {
+    console.error('Expire SLA error:', err);
+    return respond.error(res, 'Failed to expire SLA: ' + err.message);
+  }
+});
+
+// Delete SLA
+router.delete('/:id', async (req, res) => {
+  try {
+    const doc = await slaStore.findSLA(req.params.id);
+    if (!doc) return respond.error(res, 'SLA not found', 404);
+    // remove from api key slas list
+    const keyDoc = await apiKeyStore.findAPIKey(doc.apiKey);
+    if (keyDoc) {
+      const s = Array.isArray(keyDoc.slas) ? keyDoc.slas : [];
+      const idx = s.indexOf(doc._id || req.params.id);
+      if (idx > -1) s.splice(idx, 1);
+      await apiKeyStore.updateAPIKey(doc.apiKey, { slas: s });
+    }
+    await slaStore.removeSLA(req.params.id);
+    return respond.success(res, { message: 'SLA deleted' });
+  } catch (err) {
+    console.error('Delete SLA error:', err);
+    return respond.error(res, 'Failed to delete SLA: ' + err.message);
+  }
+});
+
+module.exports = router;
 
 module.exports = router;
