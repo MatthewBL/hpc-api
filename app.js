@@ -21,8 +21,8 @@ app.get('/env.js', (req, res) => {
   res.type('application/javascript').send(`window.__ENV__ = ${JSON.stringify(payload)};`);
 });
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Note: Register API routes before static to avoid FS checks blocking
+// route handling (e.g., when NFS is slow on the cluster).
 
 // Expose node_configuration.json for download
 app.get('/node_configuration.json', (req, res) => {
@@ -45,6 +45,9 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/researchers', researcherRoutes);
 app.use('/api/slas', slaRoutes);
 app.use('/api/apikeys', apiKeyRoutes);
+
+// Serve static files from public directory after API routes
+app.use(express.static(path.join(__dirname, 'public')));
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');

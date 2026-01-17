@@ -411,19 +411,13 @@ router.get('/test-prompt', async (req, res) => {
 /**
  * Endpoint to get GPU availability.
  */
-router.get('/gpu-availability', (req, res) => {
-    try {
-        const gpuUsage = getGpuUsage();
-        res.status(200).json({
-            success: true,
-            data: gpuUsage
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
+router.get('/gpu-availability', async (req, res) => {
+  try {
+    const gpuUsage = await getGpuUsage();
+    res.status(200).json({ success: true, data: gpuUsage });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 /**

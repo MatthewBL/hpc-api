@@ -1,6 +1,7 @@
 const fs = require('fs');
+const fsp = require('fs').promises;
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 
 // Paths within the workspace
 const ROOT_DIR = path.join(__dirname, '..');
@@ -202,41 +203,57 @@ function getPythonCandidates() {
   return list;
 }
 
-function tryGenerateJson(preferLast = false) {
-  if (!fs.existsSync(PY_SCRIPT_PATH) || !fs.existsSync(TXT_PATH)) return null;
+function tryGenerateJsonAsync(preferLast = false, timeoutMs = 5000) {
+  if (!fs.existsSync(PY_SCRIPT_PATH) || !fs.existsSync(TXT_PATH)) return Promise.resolve(null);
   const pyCandidates = getPythonCandidates();
   const args = [PY_SCRIPT_PATH, '--input', TXT_PATH, '--output', preferLast ? LAST_JSON_PATH : JSON_PATH];
   if (preferLast) args.push('--last');
-  for (const exe of pyCandidates) {
-    const r = spawnSync(exe, args, { encoding: 'utf8' });
-    if (r && r.status === 0) {
-      const outPath = preferLast ? LAST_JSON_PATH : JSON_PATH;
-      if (fs.existsSync(outPath)) return outPath;
-    }
-  }
-  return null;
+  const outPath = preferLast ? LAST_JSON_PATH : JSON_PATH;
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    const done = (val) => { if (!resolved) { resolved = true; resolve(val); } };
+
+    const timer = setTimeout(() => done(null), timeoutMs);
+
+    const tryNext = (idx) => {
+      if (idx >= pyCandidates.length) return done(null);
+      const exe = pyCandidates[idx];
+      const p = spawn(exe, args, { stdio: ['ignore', 'ignore', 'ignore'] });
+      p.on('error', () => tryNext(idx + 1));
+      p.on('close', (code) => {
+        if (code === 0 && fs.existsSync(outPath)) {
+          clearTimeout(timer);
+          return done(outPath);
+        }
+        return tryNext(idx + 1);
+      });
+    };
+
+    tryNext(0);
+  });
 }
 
-function readJsonWithTroubleshooter() {
+async function readJsonWithTroubleshooter() {
   // Prefer existing last snapshot JSON only
   if (fs.existsSync(LAST_JSON_PATH)) {
     try {
-      const raw = fs.readFileSync(LAST_JSON_PATH, 'utf8');
+      const raw = await fsp.readFile(LAST_JSON_PATH, 'utf8');
       return { obj: JSON.parse(raw), source: 'uso_cluster_last.json' };
     } catch (_) { /* fall through */ }
   }
   // Try generating last snapshot JSON
-  const genLast = tryGenerateJson(true);
+  const genLast = await tryGenerateJsonAsync(true);
   if (genLast && fs.existsSync(genLast)) {
     try {
-      const raw = fs.readFileSync(genLast, 'utf8');
+      const raw = await fsp.readFile(genLast, 'utf8');
       return { obj: JSON.parse(raw), source: path.basename(genLast) };
     } catch (_) { /* fall through */ }
   }
   // Final fallback: compute usage from TXT directly (last block)
   if (fs.existsSync(TXT_PATH)) {
     try {
-      const content = fs.readFileSync(TXT_PATH, 'utf8');
+      const content = await fsp.readFile(TXT_PATH, 'utf8');
       const used = getLastBlockGPUCounts(content);
       return { obj: null, source: 'uso_cluster.txt (fallback)', usedFallback: used };
     } catch (_) { /* fall through */ }
@@ -277,10 +294,10 @@ function getLastBlockGPUCounts(fileContent) {
  * Troubleshoots missing JSON by attempting generation from TXT, falling back to TXT parse.
  * @returns {{A30:{total:number, used:number, available:number}, A40:{total:number, used:number, available:number}, A100:{total:number, used:number, available:number}, timestamp:string|null, source:string}}
  */
-function getGpuUsage() {
+async function getGpuUsage() {
   const totals = getTotalCapacityFromNodeConfig();
   const nodeCaps = getNodeCapacitiesFromNodeConfig();
-  const { obj, source, usedFallback } = readJsonWithTroubleshooter();
+  const { obj, source, usedFallback } = await readJsonWithTroubleshooter();
 
   let used = { A30: 0, A40: 0, A100: 0 };
   let timestamp = null;
