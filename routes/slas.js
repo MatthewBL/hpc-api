@@ -23,6 +23,36 @@ async function checkAndExpireIfNeeded(slaDoc) {
 
   const expired = instance.isExpired();
   if (expired && slaDoc.validity === true) {
+  /**
+   * POST /api/slas/templates - create SLA template
+   *
+   * @openapi
+   * /api/slas/templates:
+   *   post:
+   *     summary: Create an SLA template
+   *     tags:
+   *       - SLA Templates
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               filepath:
+   *                 type: string
+   *                 description: Absolute or workspace-relative path to the SLA YAML file
+   *           examples:
+   *             createTemplate:
+   *               summary: Example body to create a template
+   *               value:
+   *                 filepath: "docs/templates/sla_gpu.yaml"
+   *     responses:
+   *       '200':
+   *         description: SLA template created
+   *       '400':
+   *         description: Missing or invalid payload
+   */
     // expire it in storage
     await slaStore.updateSLA(slaDoc._id || slaDoc.id, { validity: false });
     const updated = await slaStore.findSLA(slaDoc._id || slaDoc.id);
@@ -88,6 +118,27 @@ router.put('/templates/:id', async (req, res) => {
 
 // Delete template
 router.delete('/templates/:id', async (req, res) => {
+/**
+ * GET /api/slas/templates/{id} - get SLA template by id
+ *
+ * @openapi
+ * /api/slas/templates/{id}:
+ *   get:
+ *     summary: Retrieve an SLA template
+ *     tags:
+ *       - SLA Templates
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Template retrieved
+ *       '404':
+ *         description: Template not found
+ */
   try {
     const numRemoved = await slaTemplateStore.removeTemplate(req.params.id);
     if (numRemoved === 0) return respond.error(res, 'Template not found', 404);
@@ -99,6 +150,37 @@ router.delete('/templates/:id', async (req, res) => {
 });
 
 /** SLAs CRUD and operations **/
+/**
+ * GET /api/slas/templates - list SLA templates
+ *
+ * @openapi
+ * /api/slas/templates:
+ *   get:
+ *     summary: List all SLA templates
+ *     tags:
+ *       - SLA Templates
+ *     responses:
+ *       '200':
+ *         description: A list of templates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 templates:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       filepath:
+ *                         type: string
+ */
 
 // Create SLA
 router.post('/', async (req, res) => {
@@ -109,6 +191,43 @@ router.post('/', async (req, res) => {
       return respond.error(res, 'filepath, apiKey and templateId are required', 400);
     }
     // ensure apiKey exists
+/**
+ * PUT /api/slas/templates/{id} - update SLA template filepath
+ *
+ * @openapi
+ * /api/slas/templates/{id}:
+ *   put:
+ *     summary: Update an SLA template
+ *     tags:
+ *       - SLA Templates
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               filepath:
+ *                 type: string
+ *           examples:
+ *             updateTemplate:
+ *               summary: Example body to update a template
+ *               value:
+ *                 filepath: "docs/templates/sla_gpu_v2.yaml"
+ *     responses:
+ *       '200':
+ *         description: Template updated
+ *       '400':
+ *         description: Missing or invalid payload
+ *       '404':
+ *         description: Template not found
+ */
     const apiKeyDoc = await apiKeyStore.findAPIKey(apiKey);
     if (!apiKeyDoc) return respond.error(res, 'API Key not found', 400);
     // optional: ensure template exists
@@ -122,6 +241,27 @@ router.post('/', async (req, res) => {
       const monthLater = new Date(now.getTime());
       monthLater.setMonth(monthLater.getMonth() + 1);
       expiryDate = monthLater.toISOString();
+/**
+ * DELETE /api/slas/templates/{id} - remove an SLA template
+ *
+ * @openapi
+ * /api/slas/templates/{id}:
+ *   delete:
+ *     summary: Delete an SLA template
+ *     tags:
+ *       - SLA Templates
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Template deleted
+ *       '404':
+ *         description: Template not found
+ */
     }
 
     const id = crypto.randomBytes(16).toString('hex');
@@ -135,6 +275,53 @@ router.post('/', async (req, res) => {
       slas.push(id);
       await apiKeyStore.updateAPIKey(apiKey, { slas });
     }
+/**
+ * POST /api/slas - create a new SLA
+ *
+ * @openapi
+ * /api/slas:
+ *   post:
+ *     summary: Create a new SLA
+ *     tags:
+ *       - SLAs
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - filepath
+ *               - apiKey
+ *               - templateId
+ *             properties:
+ *               filepath:
+ *                 type: string
+ *               apiKey:
+ *                 type: string
+ *               templateId:
+ *                 type: string
+ *               validity:
+ *                 type: boolean
+ *                 description: Optional; defaults to true
+ *               expiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Optional; defaults to one month ahead
+ *           examples:
+ *             createSLA:
+ *               summary: Example body to create an SLA
+ *               value:
+ *                 filepath: "docs/slas/user_sla.yaml"
+ *                 apiKey: "abc123"
+ *                 templateId: "tmpl_01"
+ *                 validity: true
+ *     responses:
+ *       '200':
+ *         description: SLA created
+ *       '400':
+ *         description: Invalid payload or missing references
+ */
 
     return respond.success(res, { message: 'SLA created', sla: instance.toJSON() });
   } catch (err) {
@@ -166,6 +353,27 @@ router.get('/by-apiKey/:apiKey', async (req, res) => {
       results.push(u);
     }
     return respond.success(res, { message: 'SLAs by API key', count: results.length, slas: results });
+    /**
+     * GET /api/slas/{id} - get SLA by id
+     *
+     * @openapi
+     * /api/slas/{id}:
+     *   get:
+     *     summary: Retrieve an SLA by id
+     *     tags:
+     *       - SLAs
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *     responses:
+     *       '200':
+     *         description: SLA retrieved
+     *       '404':
+     *         description: SLA not found
+     */
   } catch (err) {
     console.error('List SLAs by key error:', err);
     return respond.error(res, 'Failed to list SLAs by API key: ' + err.message);
@@ -178,6 +386,38 @@ router.get('/', async (req, res) => {
     const docs = await slaStore.getAll();
     const results = [];
     for (const d of docs) {
+    /**
+     * GET /api/slas/by-apiKey/{apiKey} - list SLAs linked to an API key
+     *
+     * @openapi
+     * /api/slas/by-apiKey/{apiKey}:
+     *   get:
+     *     summary: List SLAs by API key
+     *     tags:
+     *       - SLAs
+     *     parameters:
+     *       - in: path
+     *         name: apiKey
+     *         required: true
+     *         schema:
+     *           type: string
+     *     responses:
+     *       '200':
+     *         description: SLAs retrieved for the given key
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 count:
+     *                   type: integer
+     *                 slas:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     */
       const u = await checkAndExpireIfNeeded(d);
       results.push(u);
     }
@@ -193,6 +433,32 @@ router.put('/:id', async (req, res) => {
   try {
     const existing = await slaStore.findSLA(req.params.id);
     if (!existing) return respond.error(res, 'SLA not found', 404);
+    /**
+     * GET /api/slas - list all SLAs
+     *
+     * @openapi
+     * /api/slas:
+     *   get:
+     *     summary: List all SLAs
+     *     tags:
+     *       - SLAs
+     *     responses:
+     *       '200':
+     *         description: A list of SLAs
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 count:
+     *                   type: integer
+     *                 slas:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     */
 
     const updates = {};
     const allowed = ['filepath', 'apiKey', 'templateId', 'validity', 'expiryDate'];
@@ -208,6 +474,53 @@ router.put('/:id', async (req, res) => {
       if (oldKeyDoc) {
         const s = Array.isArray(oldKeyDoc.slas) ? oldKeyDoc.slas : [];
         const idx = s.indexOf(existing._id || req.params.id);
+    /**
+     * PUT /api/slas/{id} - update an SLA (partial)
+     *
+     * @openapi
+     * /api/slas/{id}:
+     *   put:
+     *     summary: Update an existing SLA
+     *     tags:
+     *       - SLAs
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               filepath:
+     *                 type: string
+     *               apiKey:
+     *                 type: string
+     *               templateId:
+     *                 type: string
+     *               validity:
+     *                 type: boolean
+     *               expiryDate:
+     *                 type: string
+     *                 format: date-time
+     *           examples:
+     *             updateSLA:
+     *               summary: Example body to update an SLA
+     *               value:
+     *                 validity: false
+     *                 expiryDate: "2026-02-01T12:00:00Z"
+     *     responses:
+     *       '200':
+     *         description: SLA updated
+     *       '400':
+     *         description: Invalid update or missing references
+     *       '404':
+     *         description: SLA not found
+     */
         if (idx > -1) s.splice(idx, 1);
         await apiKeyStore.updateAPIKey(existing.apiKey, { slas: s });
       }
@@ -243,6 +556,38 @@ router.get('/:id/check-expiry', async (req, res) => {
       apiKey: doc.apiKey,
       templateId: doc.templateId,
       validity: doc.validity,
+    /**
+     * GET /api/slas/{id}/check-expiry - check whether an SLA has expired
+     *
+     * @openapi
+     * /api/slas/{id}/check-expiry:
+     *   get:
+     *     summary: Check if an SLA has expired
+     *     tags:
+     *       - SLAs
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *     responses:
+     *       '200':
+     *         description: Expiry status returned
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 expired:
+     *                   type: boolean
+     *                 currentlyValid:
+     *                   type: boolean
+     *       '404':
+     *         description: SLA not found
+     */
       expiryDate: doc.expiryDate
     });
     const expired = instance.isExpired();
@@ -263,6 +608,27 @@ router.post('/:id/expire', async (req, res) => {
     }
     const updated = await slaStore.updateSLA(req.params.id, { validity: false });
     return respond.success(res, { message: 'SLA expired', sla: updated });
+    /**
+     * POST /api/slas/{id}/expire - mark an SLA as expired
+     *
+     * @openapi
+     * /api/slas/{id}/expire:
+     *   post:
+     *     summary: Expire an SLA (set validity=false)
+     *     tags:
+     *       - SLAs
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *     responses:
+     *       '200':
+     *         description: SLA expired
+     *       '404':
+     *         description: SLA not found
+     */
   } catch (err) {
     console.error('Expire SLA error:', err);
     return respond.error(res, 'Failed to expire SLA: ' + err.message);
@@ -278,6 +644,27 @@ router.delete('/:id', async (req, res) => {
     const keyDoc = await apiKeyStore.findAPIKey(doc.apiKey);
     if (keyDoc) {
       const s = Array.isArray(keyDoc.slas) ? keyDoc.slas : [];
+    /**
+     * DELETE /api/slas/{id} - delete an SLA
+     *
+     * @openapi
+     * /api/slas/{id}:
+     *   delete:
+     *     summary: Delete an SLA
+     *     tags:
+     *       - SLAs
+     *     parameters:
+     *       - in: path
+     *         name: id
+     *         required: true
+     *         schema:
+     *           type: string
+     *     responses:
+     *       '200':
+     *         description: SLA deleted
+     *       '404':
+     *         description: SLA not found
+     */
       const idx = s.indexOf(doc._id || req.params.id);
       if (idx > -1) s.splice(idx, 1);
       await apiKeyStore.updateAPIKey(doc.apiKey, { slas: s });

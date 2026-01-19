@@ -36,6 +36,33 @@ const router = express.Router();
  *     responses:
  *       '200':
  *         description: API Key created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 apiKey:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     slas:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *             examples:
+ *               created:
+ *                 summary: Example response after creation
+ *                 value:
+ *                   success: true
+ *                   message: "API Key created successfully"
+ *                   apiKey:
+ *                     id: "1f2e3d4c..."
+ *                     slas: ["sla-basic", "sla-priority"]
  *       '500':
  *         description: Server error
  */
@@ -79,6 +106,33 @@ router.post('/', async (req, res) => {
  *     responses:
  *       '200':
  *         description: API Key information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 apiKey:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     slas:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *             examples:
+ *               found:
+ *                 summary: Example response when API Key is found
+ *                 value:
+ *                   success: true
+ *                   message: "API Key retrieved successfully"
+ *                   apiKey:
+ *                     id: "1f2e3d4c..."
+ *                     slas: ["sla-basic"]
  *       '404':
  *         description: API Key not found
  *       '500':
@@ -112,6 +166,40 @@ router.get('/:id', async (req, res) => {
  *     responses:
  *       '200':
  *         description: List of API Keys
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 count:
+ *                   type: integer
+ *                 apiKeys:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       slas:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *             examples:
+ *               list:
+ *                 summary: Example list response
+ *                 value:
+ *                   success: true
+ *                   message: "API Keys retrieved successfully"
+ *                   count: 2
+ *                   apiKeys:
+ *                     - id: "1f2e3d4c..."
+ *                       slas: ["sla-basic"]
+ *                     - id: "aabbccdd..."
+ *                       slas: ["sla-premium", "sla-priority"]
  *       '500':
  *         description: Server error
  */
@@ -163,6 +251,33 @@ router.get('/', async (req, res) => {
  *     responses:
  *       '200':
  *         description: API Key updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 apiKey:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     slas:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *             examples:
+ *               updated:
+ *                 summary: Example response after update
+ *                 value:
+ *                   success: true
+ *                   message: "API Key updated successfully"
+ *                   apiKey:
+ *                     id: "1f2e3d4c..."
+ *                     slas: ["sla-basic", "sla-premium"]
  *       '404':
  *         description: API Key not found
  *       '500':
@@ -225,6 +340,33 @@ router.put('/:id', async (req, res) => {
  *     responses:
  *       '200':
  *         description: SLA assigned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 apiKey:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     slas:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *             examples:
+ *               assigned:
+ *                 summary: Example response after SLA assignment
+ *                 value:
+ *                   success: true
+ *                   message: "SLA assigned to API Key successfully"
+ *                   apiKey:
+ *                     id: "1f2e3d4c..."
+ *                     slas: ["sla-basic", "sla-priority"]
  *       '404':
  *         description: API Key not found
  *       '500':
@@ -274,6 +416,33 @@ router.post('/:id/slas', async (req, res) => {
  *     responses:
  *       '200':
  *         description: SLA removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 apiKey:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     slas:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *             examples:
+ *               removed:
+ *                 summary: Example response after SLA removal
+ *                 value:
+ *                   success: true
+ *                   message: "SLA removed from API Key successfully"
+ *                   apiKey:
+ *                     id: "1f2e3d4c..."
+ *                     slas: ["sla-basic"]
  *       '404':
  *         description: API Key not found
  *       '500':
@@ -312,6 +481,21 @@ router.delete('/:id/slas/:slaId', async (req, res) => {
  *     responses:
  *       '200':
  *         description: API Key deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *             examples:
+ *               deleted:
+ *                 summary: Example deletion response
+ *                 value:
+ *                   success: true
+ *                   message: "API Key deleted successfully"
  *       '404':
  *         description: API Key not found
  *       '500':

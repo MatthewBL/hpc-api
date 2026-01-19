@@ -11,7 +11,7 @@ const router = express.Router();
  * @openapi
  * /api/researchers:
  *   post:
- *     summary: Create researcher
+ *     summary: Create a new researcher
  *     tags:
  *       - Researchers
  *     requestBody:
@@ -22,28 +22,54 @@ const router = express.Router();
  *             type: object
  *             required:
  *               - name
+ *               - email
  *             properties:
  *               name:
  *                 type: string
  *                 description: Researcher name
- *               slas:
- *                 type: array
- *                 description: List of SLA identifiers applied to the researcher
- *                 items:
- *                   type: string
+ *               email:
+ *                 type: string
+ *                 description: Researcher email
  *           examples:
  *             minimal:
- *               summary: Minimal example
+ *               summary: Minimal payload
  *               value:
  *                 name: "Ada Lovelace"
- *             withSlas:
- *               summary: With SLAs
- *               value:
- *                 name: "Alan Turing"
- *                 slas: ["sla-basic", "sla-priority"]
+ *                 email: "ada@example.org"
  *     responses:
  *       '200':
  *         description: Researcher created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 researcher:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     apiKey:
+ *                       type: string
+ *             examples:
+ *               created:
+ *                 summary: Created researcher response
+ *                 value:
+ *                   success: true
+ *                   message: "Researcher created successfully"
+ *                   researcher:
+ *                     id: "b6f2f839e4f34bfc9a0a9f4a3f0d9f52"
+ *                     name: "Ada Lovelace"
+ *                     email: "ada@example.org"
+ *                     apiKey: "a1b2c3d4e5f6..."
  *       '400':
  *         description: Missing required fields
  *       '500':
@@ -88,7 +114,7 @@ router.post('/', async (req, res) => {
  * @openapi
  * /api/researchers/{id}:
  *   get:
- *     summary: Get researcher by id
+ *     summary: Retrieve a researcher by id
  *     tags:
  *       - Researchers
  *     parameters:
@@ -100,6 +126,37 @@ router.post('/', async (req, res) => {
  *     responses:
  *       '200':
  *         description: Researcher information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 researcher:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     apiKey:
+ *                       type: string
+ *             examples:
+ *               example:
+ *                 summary: Example researcher
+ *                 value:
+ *                   success: true
+ *                   message: "Researcher retrieved successfully"
+ *                   researcher:
+ *                     id: "e1d2c3b4a5f6..."
+ *                     name: "Alan Turing"
+ *                     email: "alan@example.org"
+ *                     apiKey: "k9j8h7g6f5..."
  *       '404':
  *         description: Researcher not found
  *       '500':
@@ -134,6 +191,46 @@ router.get('/:id', async (req, res) => {
  *     responses:
  *       '200':
  *         description: List of researchers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 count:
+ *                   type: integer
+ *                 researchers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       apiKey:
+ *                         type: string
+ *             examples:
+ *               list:
+ *                 summary: Example list response
+ *                 value:
+ *                   success: true
+ *                   message: "Researchers retrieved successfully"
+ *                   count: 2
+ *                   researchers:
+ *                     - id: "id-1"
+ *                       name: "Ada Lovelace"
+ *                       email: "ada@example.org"
+ *                       apiKey: "key-1"
+ *                     - id: "id-2"
+ *                       name: "Alan Turing"
+ *                       email: "alan@example.org"
+ *                       apiKey: "key-2"
  *       '500':
  *         description: Server error
  */
@@ -157,7 +254,7 @@ router.get('/', async (req, res) => {
  * @openapi
  * /api/researchers/{id}:
  *   put:
- *     summary: Modify a researcher
+ *     summary: Update a researcher
  *     tags:
  *       - Researchers
  *     parameters:
@@ -175,22 +272,42 @@ router.get('/', async (req, res) => {
  *             properties:
  *               name:
  *                 type: string
- *               slas:
- *                 type: array
- *                 items:
- *                   type: string
+ *               email:
+ *                 type: string
  *           examples:
  *             updateName:
  *               summary: Update name only
  *               value:
  *                 name: "Grace Hopper"
- *             updateSlas:
- *               summary: Update SLAs
+ *             updateEmail:
+ *               summary: Update email only
  *               value:
- *                 slas: ["sla-basic"]
+ *                 email: "grace@example.org"
  *     responses:
  *       '200':
- *         description: Researcher modified successfully
+ *         description: Researcher updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 researcher:
+ *                   type: object
+ *             examples:
+ *               updated:
+ *                 summary: Example update response
+ *                 value:
+ *                   success: true
+ *                   message: "Researcher updated successfully"
+ *                   researcher:
+ *                     id: "id-1"
+ *                     name: "Grace Hopper"
+ *                     email: "grace@example.org"
+ *                     apiKey: "key-1"
  *       '404':
  *         description: Researcher not found
  *       '500':
@@ -230,7 +347,7 @@ router.put('/:id', async (req, res) => {
  * @openapi
  * /api/researchers/{id}/slas:
  *   post:
- *     summary: Assign an SLA to a researcher
+ *     summary: Assign an SLA to a researcher (via API key)
  *     tags:
  *       - Researchers
  *     parameters:
@@ -253,13 +370,36 @@ router.put('/:id', async (req, res) => {
  *                 description: SLA identifier to assign
  *           examples:
  *             assign:
+ *               summary: Assign a priority SLA
  *               value:
  *                 slaId: "sla-priority"
  *     responses:
  *       '200':
- *         description: SLA assigned successfully
+ *         description: SLA assigned successfully and researcher updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 researcher:
+ *                   type: object
+ *             examples:
+ *               assigned:
+ *                 summary: Example assign response
+ *                 value:
+ *                   success: true
+ *                   message: "SLA assigned to researcher successfully"
+ *                   researcher:
+ *                     id: "id-1"
+ *                     name: "Ada Lovelace"
+ *                     email: "ada@example.org"
+ *                     apiKey: "key-1"
  *       '400':
- *         description: Missing required fields or researcher has no API key
+ *         description: Missing required fields
  *       '404':
  *         description: Researcher not found
  *       '500':
@@ -316,7 +456,7 @@ router.post('/:id/slas', async (req, res) => {
  * @openapi
  * /api/researchers/{id}/slas/{slaId}:
  *   delete:
- *     summary: Remove an SLA from a researcher
+ *     summary: Remove an SLA from a researcher (via API key)
  *     tags:
  *       - Researchers
  *     parameters:
@@ -332,7 +472,29 @@ router.post('/:id/slas', async (req, res) => {
  *           type: string
  *     responses:
  *       '200':
- *         description: SLA removed successfully
+ *         description: SLA removed successfully and researcher updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 researcher:
+ *                   type: object
+ *             examples:
+ *               removed:
+ *                 summary: Example removal response
+ *                 value:
+ *                   success: true
+ *                   message: "SLA removed from researcher successfully"
+ *                   researcher:
+ *                     id: "id-1"
+ *                     name: "Alan Turing"
+ *                     email: "alan@example.org"
+ *                     apiKey: "key-1"
  *       '400':
  *         description: Researcher has no API key
  *       '404':
@@ -385,6 +547,21 @@ router.delete('/:id/slas/:slaId', async (req, res) => {
  *     responses:
  *       '200':
  *         description: Researcher removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *             examples:
+ *               deleted:
+ *                 summary: Example deletion response
+ *                 value:
+ *                   success: true
+ *                   message: "Researcher deleted successfully"
  *       '404':
  *         description: Researcher not found
  *       '500':
