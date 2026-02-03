@@ -34,17 +34,11 @@ app.get('/node_configuration.json', (req, res) => {
 const healthRoutes = require('./routes/health');
 const modelRoutes = require('./routes/models');
 const jobRoutes = require('./routes/jobs');
-const researcherRoutes = require('./routes/researchers');
-const slaRoutes = require('./routes/slas');
-const apiKeyRoutes = require('./routes/apikeys');
 
 // Use routes - make sure these are actually router objects
 app.use('/health', healthRoutes);
 app.use('/api/models', modelRoutes);
 app.use('/api/jobs', jobRoutes);
-app.use('/api/researchers', researcherRoutes);
-app.use('/api/slas', slaRoutes);
-app.use('/api/apikeys', apiKeyRoutes);
 
 // Serve static files from public directory after API routes
 app.use(express.static(path.join(__dirname, 'public')));
